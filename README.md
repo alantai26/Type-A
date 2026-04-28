@@ -1,1 +1,1 @@
-# typea
+# Type A
