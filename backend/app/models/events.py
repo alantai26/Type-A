@@ -9,7 +9,7 @@ from app.models.base import Base
 class Event(Base):                                                                                                                     
     __tablename__ = "events"
     __table_args__ = (
-        CheckConstraint("status IN ('draft', 'confirmed', 'completed', 'cancelled')", name="check_event_status"),
+        CheckConstraint("status IN ('planning_in_progress', 'confirmed', 'completed', 'cancelled')", name="check_event_status"),
     )
 
     event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)                                               
