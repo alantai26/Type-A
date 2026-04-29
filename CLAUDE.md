@@ -63,7 +63,7 @@ Key design:
 - `place_id` on events is nullable — informal locations use `custom_location_name` instead (e.g. "Josh's House")
 - Ratings live on `place_ratings` (per-place) and `outings.final_rating` (composite) — events are not rated directly
 - `weight` on events stores optional stop weighting within an outing (0.0-1.0), used as ML training data
-- Status fields enforced via CHECK constraints: `draft | confirmed | completed | cancelled`
+- Status fields enforced via CHECK constraints: `planning_in_progress | confirmed | completed | cancelled` (both outings and events)
 - RSVP fields enforced via CHECK: `pending | accepted | rejected`
 - All IDs are UUIDs, all timestamps are TIMESTAMPTZ
 
