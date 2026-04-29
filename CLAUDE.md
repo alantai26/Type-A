@@ -41,20 +41,31 @@ Layered: **Route → Service → Repository → Database**
 - `app/repositories/` — Data access layer
 - `app/models/` — SQLAlchemy ORM models + Pydantic schemas
 
-## Data Model (planned for TYP-8 — not yet implemented)
-- users(id, email, display_name, created_at)
-- places(id, name, lat, lng, category, source_url, google_place_id)
-- saved_places(user_id, place_id, saved_at)
-- events(id, creator_id, place_id, status, scheduled_for, completed_at,
-- outing_id, sequence_position, final_rating, derived_score)
-- outings(id, creator_id, status, scheduled_for, completed_at, final_rating, derived_score)
-- event_invitations(event_id, invitee_user_id, rsvp_status, ics_sent_at)
-- comparisons(user_id, item_a_id, item_b_id, item_type, winner_id, created_at)
-- item_type: 'event' | 'outing'
-- friendships(user_a, user_b, status, created_at)
-- attribution_outputs(user_id, place_id, attributed_effect, confidence_lower, confidence_upper, model_version, computed_at)
+## Data Model (TYP-8 — implemented, migrated)
 
-Key design: events are atomic, outings are optional multi-stop groupings, comparisons are polymorphic (events or outings).
+```
+users(user_id, email, display_name, created_at)
+places(place_id, name, latitude, longitude, category, source_url, google_place_id)
+saved_places(user_id*, place_id*)                                    ← composite PK
+place_ratings(rating_id, user_id, place_id, rating, created_at)      ← multiple ratings per user/place
+outings(outing_id, creator_id, status, scheduled_for, completed_at, final_rating, derived_score)
+events(event_id, creator_id, place_id?, custom_location_name?, outing_id?, sequence_position?, status, scheduled_for, completed_at?, weight?)
+event_invitations(user_id*, event_id*, rsvp_status, ics_sent_at?)    ← composite PK
+outing_invitations(user_id*, outing_id*, rsvp_status, ics_sent_at?)  ← composite PK
+friendships(user_a_id*, user_b_id*, status, created_at)              ← composite PK, two rows per friendship
+comparisons(comparison_id, user_id, item_a_id, item_b_id, item_type, winner_id, created_at)
+attribution_outputs(attribution_id, user_id, place_id, attributed_effect, confidence_lower, confidence_upper, model_version, computed_at)
+```
+
+Key design:
+- Events are atomic, outings are optional multi-stop groupings
+- Comparisons are polymorphic: `item_type` is `'place' | 'outing'`, no FK on item_a/b/winner (can't FK to two tables)
+- `place_id` on events is nullable — informal locations use `custom_location_name` instead (e.g. "Josh's House")
+- Ratings live on `place_ratings` (per-place) and `outings.final_rating` (composite) — events are not rated directly
+- `weight` on events stores optional stop weighting within an outing (0.0-1.0), used as ML training data
+- Status fields enforced via CHECK constraints: `draft | confirmed | completed | cancelled`
+- RSVP fields enforced via CHECK: `pending | accepted | rejected`
+- All IDs are UUIDs, all timestamps are TIMESTAMPTZ
 
 ## Planned API Endpoints
 - GET    /health           → server status
@@ -89,8 +100,19 @@ Environment variables in `.env` (see `.env.example`):
 
 Branches: `main` → `dev` (active development) → `prod` (release snapshots). Feature branches off `dev`, named like `TYP-8-database-schema`. PRs target `dev`. Commit messages prefixed with ticket ID (e.g. `TYP-8: ...`), include `Fixes TYP-X` to auto-close Linear tickets.
 
+## Claude Code Hooks
+
+Five hooks configured in `.claude/settings.json` (project root):
+
+- **`protect-files.sh`** (PreToolUse: Edit|Write) — blocks edits to `.env`, `.git/`, credentials, keys
+- **`block-dangerous.sh`** (PreToolUse: Bash) — blocks `rm -rf`, `DROP`, force push, `git reset --hard`
+- **`block-direct-db.sh`** (PreToolUse: Bash) — blocks raw SQL writes via psql (SELECT/inspect allowed)
+- **`block-schema-drift.sh`** (Stop) — blocks if models changed without Alembic migration
+- **`auto-update-docs.sh`** (Stop) — blocks if significant code changed without CLAUDE.md/README update
+
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in HANDOFF.md.
-- TYP-8 is in progress, not complete. The data model above is planned, not yet in SQLAlchemy. Check `app/models/` to see actual current state.
+- TYP-8 is complete. All 11 SQLAlchemy models + initial migration are in place. Check `app/models/` for current state.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
+- Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
