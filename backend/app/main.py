@@ -1,9 +1,11 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routes import users as users_routes
 
 app = FastAPI(
     title="Type A API",
@@ -19,9 +21,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(users_routes.router)
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
 
 @app.get("/")
 def root():

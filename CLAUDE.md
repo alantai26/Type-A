@@ -86,7 +86,8 @@ Key design:
 - **SQLAlchemy 2.0** + **Alembic** + **psycopg 3**
 - **PostgreSQL** (`type_a_dev` on localhost:5432)
 - **scikit-learn / statsmodels** for ML inference
-- **Supabase or Clerk** for auth (planned)
+- **Supabase** for auth (JWT issuance only — Supabase's Postgres is unused)
+- **PyJWT** (`pyjwt[crypto]`) for server-side JWT validation
 - **Google Places API** for place metadata
 
 ## Configuration
