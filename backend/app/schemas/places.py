@@ -1,0 +1,14 @@
+import uuid
+
+from pydantic import BaseModel, ConfigDict
+
+
+class PlaceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    place_id: uuid.UUID
+    name: str
+    latitude: float
+    longitude: float
+    distance_m: float
+    is_saved: bool
