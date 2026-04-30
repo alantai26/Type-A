@@ -96,6 +96,19 @@ Considered lookup table, decided it's overkill for a small fixed set (food, acti
 6. Attribution model decomposes composite ratings into per-place effects over time
 7. Future predictions: "Adding TopGolf to this outing would bump your predicted enjoyment by +2"
 
+### Informal-place ratings (decision: schema already handles it)
+
+Discussion 2026-04-30 (during TYP-18). Question raised: how do you rate a solo event held at an informal place like "Jim's house"? Doesn't this create a privacy problem (rating shows on a profile when the place was meant to be private)?
+
+**Resolution: no schema change needed. The current design already enforces the right behavior.**
+
+- Informal places have no `places` row (they live as the string `events.custom_location_name`).
+- `place_ratings.place_id` is a FK to `places` — so an informal place is *physically un-rateable*. The DB rejects any attempt.
+- A solo event at Jim's house therefore generates no rating row, no profile entry, no ML training data. Privacy is automatic — there's nothing to leak.
+- A multi-stop outing that includes Jim's house is still rateable as a composite via `outings.final_rating` + `events.weight`. The composite never exposes Jim's house as a stand-alone rated place.
+
+**The only deferred question is UI:** when the post-event rating prompt is built (future ticket), it should suppress the "rate this place" prompt for events where `place_id IS NULL`. That's a client-side gate, not a schema concern. Document this rule when building the rating flow.
+
 ---
 
 ## Key Design Decisions (carried forward from schema session)

@@ -5,6 +5,7 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routes import places as places_routes
 from app.routes import users as users_routes
 
 app = FastAPI(
@@ -22,6 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(users_routes.router)
+app.include_router(places_routes.router)
 
 
 @app.get("/health")

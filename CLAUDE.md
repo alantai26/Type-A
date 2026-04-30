@@ -49,7 +49,8 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
 - `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`)
 - `backend/app/services/` — business logic (currently empty; logic that's just one DB call lives directly in repositories)
 - `backend/app/repositories/` — data access layer
-- `backend/app/models/` — SQLAlchemy ORM models + Pydantic request/response schemas (suffixed `_schemas.py`)
+- `backend/app/models/` — SQLAlchemy ORM models only
+- `backend/app/schemas/` — Pydantic request/response schemas (one file per resource: `users.py`, `places.py`, etc.)
 
 ## Data Model (TYP-8 — implemented, migrated)
 
@@ -77,12 +78,22 @@ Key design:
 - RSVP fields enforced via CHECK: `pending | accepted | rejected`
 - All IDs are UUIDs, all timestamps are TIMESTAMPTZ
 
+Place search infrastructure (TYP-18 migration `015dcc40c7ef`):
+- Postgres extensions enabled: `cube`, `earthdistance` (radius queries), `pg_trgm` (fuzzy text)
+- `places_earth_idx` — GiST on `ll_to_earth(latitude, longitude)` for distance prefilter
+- `places_name_trgm_idx` — GIN trigram on `name` for `ILIKE`/similarity queries
+- Search SQL lives in `app/repositories/places.py` and `app/repositories/saved_places.py` as raw `text()` because the earthdistance functions aren't first-class in SQLAlchemy ORM
+
 ## API Endpoints
 
 Implemented:
-- GET    /health           → server status (no auth)
-- GET    /me               → current user (TYP-17, requires Bearer JWT)
-- PATCH  /me               → update display_name (TYP-17)
+- GET    /health                       → server status (no auth)
+- GET    /me                           → current user (TYP-17, requires Bearer JWT)
+- PATCH  /me                           → update display_name (TYP-17)
+- GET    /places                       → fuzzy + radius search (TYP-18: required `q`, `lat`, `lng`; optional `radius_m` default 50000, max 100000). Returns `PlaceOut[]` with `distance_m` and `is_saved` per result.
+- GET    /saved_places                 → user's bookmarks hydrated to places + distance from supplied `lat`/`lng` (TYP-18)
+- POST   /saved_places/{place_id}      → bookmark a place; idempotent via `ON CONFLICT DO NOTHING`; 404 if place missing (TYP-18) → 204
+- DELETE /saved_places/{place_id}      → remove bookmark; idempotent (TYP-18) → 204
 
 Planned:
 - GET/POST/GET/PATCH/DELETE  /events, /events/{id}
@@ -129,6 +140,6 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), and TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), and TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.

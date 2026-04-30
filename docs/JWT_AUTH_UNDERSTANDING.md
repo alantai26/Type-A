@@ -66,7 +66,7 @@ FastAPI runs `require_auth` first. If the token is missing/forged/expired/malfor
 
 Every endpoint that touches Postgres needs an open SQLAlchemy session. `get_db` is a generator dependency: opens a session, yields it, closes it after — even if the route raises. Standard SQLAlchemy + FastAPI pattern. Inject alongside `require_auth`.
 
-### `app/models/user_schemas.py` — Pydantic shapes
+### `app/schemas/users.py` — Pydantic shapes
 
 Separates *DB representation* from *wire representation*.
 

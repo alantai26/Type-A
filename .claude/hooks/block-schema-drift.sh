@@ -54,9 +54,12 @@ if echo "$CHANGED_FILES" | grep -qE "alembic/versions/.*\.py$"; then
   MIGRATION_PRESENT=true
 fi
 
-# Pydantic schema files
+# Pydantic schema files — only flag if a TS frontend actually exists to update.
+# iOS (Swift) and the bare backend phase don't need TS type sync.
 if echo "$CHANGED_FILES" | grep -qE "app/(models|schemas)/.*schema.*\.py$|app/schemas/.*\.py$"; then
-  PYDANTIC_CHANGED=true
+  if find "$CLAUDE_PROJECT_DIR" -maxdepth 5 -name "tsconfig.json" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -1 | grep -q .; then
+    PYDANTIC_CHANGED=true
+  fi
 fi
 
 REASONS=""
