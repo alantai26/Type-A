@@ -32,7 +32,13 @@ def _validate_token(token: str) -> dict:
 
 
 def _provision_user(db: Session, sub: str, email: str) -> User:
-    user_id = uuid.UUID(sub)
+    try:
+        user_id = uuid.UUID(sub)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="JWT sub claim is not a valid UUID",
+        )
     user = db.get(User, user_id)
     if user is None:
         user = User(
