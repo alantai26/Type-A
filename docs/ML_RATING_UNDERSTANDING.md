@@ -84,7 +84,7 @@ Frozen snapshots enable:
 
 ## Outing Lifecycle: Confirm / Unconfirm Cycle
 
-**States:** `planning_in_progress` ↔ `confirmed` → `completed` (plus `cancelled`)
+**States:** `planning_in_progress` ↔ `confirmed` → `completed` (plus `cancselled`)
 
 Note: `draft` was renamed to `planning_in_progress` to better reflect the active editing phase. The cycle works like this:
 
