@@ -10,7 +10,7 @@ from app.routes import users as users_routes
 app = FastAPI(
     title="Type A API",
     description="Social planner with ML predictions",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.add_middleware(

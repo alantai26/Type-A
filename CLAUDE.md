@@ -19,27 +19,37 @@ Two ML systems:
 
 The composite entity is called `outing` rather than `night` because Type A handles daytime sequences too. The atomic entity is called `event` rather than `plan` because `plan` is reserved for the verb.
 
+## Repo Layout
+
+The Python backend lives in `backend/`. All commands below assume `cd backend` first. Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline; `ios/` is reserved for the SwiftUI client (deferred — see MVP deadline note). Long-form design docs live in `docs/` (HANDOFF.md, JWT_AUTH_UNDERSTANDING.md, ML_RATING_UNDERSTANDING.md, ALEMBIC_NOTES.md).
+
 ## Commands
 
 ```bash
+cd backend
 source venv/bin/activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload   # localhost:8000, docs at /docs
-alembic upgrade head                       # run migrations
-alembic revision --autogenerate -m "msg"   # create migration after model changes
+alembic upgrade head                       # apply migrations
+alembic revision -m "msg"                  # create empty migration stub (then edit by hand)
+alembic revision --autogenerate -m "msg"   # autogenerate from model diff
 ```
 
 No test framework or linter configured yet.
 
+**Migration workflow:** Migration files in `backend/alembic/versions/` must be created via the alembic CLI — direct Write/Edit is blocked by a hook. Output the CLI command for the user to run; once the stub exists, you can edit its body.
+
 ## Architecture
 
-Layered: **Route → Service → Repository → Database**
+Layered: **Route → Service → Repository → Database**. Auth is a FastAPI dependency, not a layer.
 
-- `app/main.py` — FastAPI entry point, CORS middleware, root routes
-- `app/routes/` — API endpoint definitions (request handling only)
-- `app/services/` — Business logic
-- `app/repositories/` — Data access layer
-- `app/models/` — SQLAlchemy ORM models + Pydantic schemas
+- `backend/app/main.py` — FastAPI entry point, CORS middleware, `/health` and `/` routes, registers routers
+- `backend/app/auth.py` — `require_auth` dependency: validates Supabase JWT (ES256, JWKS-cached), provisions a `users` row on first sight (uses JWT `sub` as `user_id`)
+- `backend/app/db.py` — SQLAlchemy engine + `get_db` session dependency
+- `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`)
+- `backend/app/services/` — business logic (currently empty; logic that's just one DB call lives directly in repositories)
+- `backend/app/repositories/` — data access layer
+- `backend/app/models/` — SQLAlchemy ORM models + Pydantic request/response schemas (suffixed `_schemas.py`)
 
 ## Data Model (TYP-8 — implemented, migrated)
 
@@ -67,14 +77,16 @@ Key design:
 - RSVP fields enforced via CHECK: `pending | accepted | rejected`
 - All IDs are UUIDs, all timestamps are TIMESTAMPTZ
 
-## Planned API Endpoints
-- GET    /health           → server status
-- GET    /events           → list events
-- POST   /events           → create event
-- GET    /events/{id}      → get event
-- PATCH  /events/{id}      → update event
-- DELETE /events/{id}      → delete event
-- GET    /outings/{id}     → get outing with its events
+## API Endpoints
+
+Implemented:
+- GET    /health           → server status (no auth)
+- GET    /me               → current user (TYP-17, requires Bearer JWT)
+- PATCH  /me               → update display_name (TYP-17)
+
+Planned:
+- GET/POST/GET/PATCH/DELETE  /events, /events/{id}
+- GET    /outings/{id}     → outing with its events
 - POST   /outings          → create outing (or convert events)
 - GET    /predict_event    → ML prediction (atomic recommender)
 - GET    /predict_outing   → ML prediction with per-event breakdown (attribution model)
@@ -92,10 +104,12 @@ Key design:
 
 ## Configuration
 
-Environment variables in `.env` (see `.env.example`):
-- `DATABASE_URL`
-- `SECRET_KEY`
-- `SUPABASE_URL` / `SUPABASE_KEY`
+Environment variables in `backend/.env` (see `backend/.env.example`), loaded by `dotenv` in `app/main.py`:
+- `DATABASE_URL` — required by `app/db.py`
+- `SUPABASE_URL` — required by `app/auth.py` (used to build the JWKS URL)
+- `SUPABASE_KEY` — for client-side issuance (server validates via JWKS, not this key)
+
+Auth flow: clients send `Authorization: Bearer <supabase_jwt>`. The server fetches Supabase's JWKS, verifies ES256 signatures, and trusts the `sub`/`email` claims. First-time `sub` UUIDs are auto-provisioned into `users`.
 
 ## Git Workflow
 
@@ -103,17 +117,18 @@ Branches: `main` → `dev` (active development) → `prod` (release snapshots). 
 
 ## Claude Code Hooks
 
-Five hooks configured in `.claude/settings.json` (project root):
+Six hooks configured in `.claude/settings.json` (project root):
 
 - **`protect-files.sh`** (PreToolUse: Edit|Write) — blocks edits to `.env`, `.git/`, credentials, keys
+- **`block-direct-migration-write.sh`** (PreToolUse: Edit|Write) — blocks Edit/Write to `alembic/versions/`; use the alembic CLI to generate the stub first
 - **`block-dangerous.sh`** (PreToolUse: Bash) — blocks `rm -rf`, `DROP`, force push, `git reset --hard`
 - **`block-direct-db.sh`** (PreToolUse: Bash) — blocks raw SQL writes via psql (SELECT/inspect allowed)
-- **`block-schema-drift.sh`** (Stop) — blocks if models changed without Alembic migration
+- **`block-schema-drift.sh`** (Stop) — blocks if models changed without an Alembic migration
 - **`auto-update-docs.sh`** (Stop) — blocks if significant code changed without CLAUDE.md/README update
 
 ## Notes for Future Claude
 
-- The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in HANDOFF.md.
-- TYP-8 is complete. All 11 SQLAlchemy models + initial migration are in place. Check `app/models/` for current state.
+- The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), and TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
