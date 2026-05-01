@@ -42,14 +42,18 @@ def search_places(
     radius_m: float,
     user_id: uuid.UUID,
 ) -> list[dict]:
-    rows = db.execute(
-        _SEARCH_SQL,
-        {
-            "q": f"%{q}%",
-            "lat": lat,
-            "lng": lng,
-            "radius_m": radius_m,
-            "user_id": user_id,
-        },
-    ).mappings().all()
+    rows = (
+        db.execute(
+            _SEARCH_SQL,
+            {
+                "q": f"%{q}%",
+                "lat": lat,
+                "lng": lng,
+                "radius_m": radius_m,
+                "user_id": user_id,
+            },
+        )
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]

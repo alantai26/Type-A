@@ -2,10 +2,14 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
+from typing import TYPE_CHECKING
+                                  
+if TYPE_CHECKING:                                                                                        
+    from app.models.outings import Outing
 
 class Event(Base):
     __tablename__ = "events"
@@ -27,8 +31,10 @@ class Event(Base):
         mapped_column()
     )  # Position in outing sequence, if part of an outing
     status: Mapped[str] = mapped_column(String(50))
-    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     weight: Mapped[float | None] = (
         mapped_column()
     )  # Stop weight within an outing (0.0-1.0)
+
+    outing: Mapped["Outing | None"] = relationship(back_populates="events")

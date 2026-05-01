@@ -59,8 +59,8 @@ users(user_id, email, display_name, created_at)
 places(place_id, name, latitude, longitude, category, source_url, google_place_id)
 saved_places(user_id*, place_id*)                                    ← composite PK
 place_ratings(rating_id, user_id, place_id, rating, created_at)      ← multiple ratings per user/place
-outings(outing_id, creator_id, status, scheduled_for, completed_at, final_rating, derived_score)
-events(event_id, creator_id, place_id?, custom_location_name?, outing_id?, sequence_position?, status, scheduled_for, completed_at?, weight?)
+outings(outing_id, creator_id, title, status, scheduled_for?, completed_at?, final_rating?, derived_score?)
+events(event_id, creator_id, place_id?, custom_location_name?, outing_id?, sequence_position?, status, scheduled_for?, completed_at?, weight?)
 event_invitations(user_id*, event_id*, rsvp_status, ics_sent_at?)    ← composite PK
 outing_invitations(user_id*, outing_id*, rsvp_status, ics_sent_at?)  ← composite PK
 friendships(user_a_id*, user_b_id*, status, created_at)              ← composite PK, two rows per friendship

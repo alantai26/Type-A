@@ -27,9 +27,11 @@ _LIST_SQL = text("""
 def list_saved(
     db: Session, *, user_id: uuid.UUID, lat: float, lng: float
 ) -> list[dict]:
-    rows = db.execute(
-        _LIST_SQL, {"user_id": user_id, "lat": lat, "lng": lng}
-    ).mappings().all()
+    rows = (
+        db.execute(_LIST_SQL, {"user_id": user_id, "lat": lat, "lng": lng})
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]
 
 

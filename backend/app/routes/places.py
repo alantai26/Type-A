@@ -40,9 +40,7 @@ def list_saved_places(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> list[dict]:
-    return saved_repo.list_saved(
-        db, user_id=current_user.user_id, lat=lat, lng=lng
-    )
+    return saved_repo.list_saved(db, user_id=current_user.user_id, lat=lat, lng=lng)
 
 
 @router.post("/saved_places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
