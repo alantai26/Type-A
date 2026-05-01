@@ -106,6 +106,7 @@ Implemented:
 In progress (TYP-21 ratings):
 - POST   /place_ratings                → rate a place (0.0-10.0); always inserts new row
 - GET    /me/place_ratings             → user's ratings, deduped to latest-per-place via DISTINCT ON, sorted rating DESC
+- GET    /places/{place_id}/my_rating  → latest rating user has given this place; returns null if none (client falls back to rec score)
 - POST   /outings/{id}/rate            → write final_rating + per-event weight; cascades outing+events to completed
 
 Planned:
@@ -150,6 +151,6 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), and TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), and TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades) are complete. TYP-21 (ratings) is in progress: schemas + repository + `outings_service.rate` are committed; routes are still WIP. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.

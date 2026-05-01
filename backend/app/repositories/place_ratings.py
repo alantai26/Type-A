@@ -34,3 +34,13 @@ def list_by_user(db: Session, user_id: uuid.UUID) -> list[PlaceRating]:
     )
     latest = aliased(PlaceRating, inner)
     return list(db.scalars(select(latest).order_by(latest.rating.desc())).all())
+
+
+def get_latest_for_user_place(
+    db: Session, user_id: uuid.UUID, place_id: uuid.UUID
+) -> PlaceRating | None:
+    return db.scalars(
+        select(PlaceRating)
+        .where(PlaceRating.user_id == user_id, PlaceRating.place_id == place_id)
+        .order_by(PlaceRating.created_at.desc())
+    ).first()
