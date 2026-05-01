@@ -28,7 +28,7 @@ class Outing(Base):
     final_rating: Mapped[float | None] = mapped_column()
     derived_score: Mapped[float | None] = mapped_column()
 
-    events: Mapped[list["Event"]] = relationship(                                                            
-        back_populates="outing",                 
-        order_by="Event.sequence_position",                                                                  
-    )     
+    events: Mapped[list["Event"]] = relationship(
+        back_populates="outing",
+        order_by="Event.sequence_position",
+    )

@@ -94,11 +94,21 @@ Implemented:
 - GET    /saved_places                 → user's bookmarks hydrated to places + distance from supplied `lat`/`lng` (TYP-18)
 - POST   /saved_places/{place_id}      → bookmark a place; idempotent via `ON CONFLICT DO NOTHING`; 404 if place missing (TYP-18) → 204
 - DELETE /saved_places/{place_id}      → remove bookmark; idempotent (TYP-18) → 204
+- POST/GET/PATCH/DELETE  /events, /events/{id}                          (TYP-19)
+- POST   /events/{id}/confirm | /unconfirm | /cancel | /promote_to_outing (TYP-19; promote stubbed 501)
+- POST   /outings                      → create outing with title (TYP-19)
+- GET    /me/outings                   → user's outings, ordered by scheduled_for DESC NULLS LAST (TYP-19)
+- GET    /outings/{id}                 → outing with embedded events (TYP-19)
+- PATCH  /outings/{id}                 → edit title (TYP-19)
+- DELETE /outings/{id}                 → 204; edit-gate; FK cascade behavior open (TYP-19)
+- POST   /outings/{id}/confirm | /unconfirm | /cancel                   (TYP-19, cascades to events)
+
+In progress (TYP-21 ratings):
+- POST   /place_ratings                → rate a place (0.0-10.0); always inserts new row
+- GET    /me/place_ratings             → user's ratings, deduped to latest-per-place via DISTINCT ON, sorted rating DESC
+- POST   /outings/{id}/rate            → write final_rating + per-event weight; cascades outing+events to completed
 
 Planned:
-- GET/POST/GET/PATCH/DELETE  /events, /events/{id}
-- GET    /outings/{id}     → outing with its events
-- POST   /outings          → create outing (or convert events)
 - GET    /predict_event    → ML prediction (atomic recommender)
 - GET    /predict_outing   → ML prediction with per-event breakdown (attribution model)
 - POST   /comparisons      → head-to-head ranking
@@ -140,6 +150,6 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), and TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), and TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
