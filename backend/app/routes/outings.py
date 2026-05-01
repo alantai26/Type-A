@@ -8,7 +8,7 @@ from app.db import get_db
 from app.models.outings import Outing
 from app.models.users import User
 from app.repositories import outings as outings_repo
-from app.schemas.outings import OutingCreate, OutingOut, OutingUpdate
+from app.schemas.outings import OutingCreate, OutingOut, OutingUpdate, OutingRateRequest
 from app.services import outings as outings_service
 
 router = APIRouter(tags=["outings"])
@@ -103,3 +103,16 @@ def cancel_outing(
 ) -> Outing:
     outing = _require_outing(db, outing_id, current_user)
     return outings_service.cancel(db, outing)
+
+
+@router.post("/outings/{outing_id}/rate", response_model=OutingOut)
+def rate_outing(
+    outing_id: uuid.UUID,
+    body: OutingRateRequest,
+    current_user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> Outing:
+    outing = _require_outing(db, outing_id, current_user)
+    return outings_service.rate(
+        db, outing, final_rating=body.final_rating, weights=body.event_weights
+    )

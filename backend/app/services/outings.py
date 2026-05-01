@@ -7,6 +7,9 @@ from app.models.outings import Outing
 from app.repositories import events as events_repo
 from app.repositories import outings as outings_repo
 from app.services.events import _check_editable
+from app.schemas.outings import EventWeight
+
+from datetime import datetime, UTC
 
 
 def create(
@@ -96,4 +99,45 @@ def cancel(db: Session, outing: Outing) -> Outing:
     for event in events:
         events_repo.set_status(db, event, "cancelled")
 
+    return outing
+
+
+def rate(
+    db: Session, outing: Outing, *, final_rating: float, weights: list[EventWeight]
+) -> Outing:
+    if outing.status != "confirmed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot rate an unconfirmed outing",
+        )
+
+    outing_event_ids = {e.event_id for e in outing.events}
+    body_event_ids = {w.event_id for w in weights}
+
+    if outing_event_ids != body_event_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="All events must have weights",
+        )
+
+    if abs(sum(w.weight for w in weights) - 1.0) > 0.001:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Event weights must sum to 1.0",
+        )
+
+    weights_by_id = {w.event_id: w.weight for w in weights}
+    now = datetime.now(UTC)
+
+    outing.final_rating = final_rating
+    outing.status = "completed"
+    outing.completed_at = now
+
+    for event in outing.events:
+        event.weight = weights_by_id[event.event_id]
+        event.status = "completed"
+        event.completed_at = now
+
+    db.commit()
+    db.refresh(outing)
     return outing
