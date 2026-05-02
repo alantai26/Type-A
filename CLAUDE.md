@@ -21,7 +21,7 @@ The composite entity is called `outing` rather than `night` because Type A handl
 
 ## Repo Layout
 
-The Python backend lives in `backend/`. All commands below assume `cd backend` first. Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline; `ios/` is reserved for the SwiftUI client (deferred — see MVP deadline note). Long-form design docs live in `docs/` (HANDOFF.md, JWT_AUTH_UNDERSTANDING.md, ML_RATING_UNDERSTANDING.md, ALEMBIC_NOTES.md).
+The Python backend lives in `backend/`. All commands below assume `cd backend` first. Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline; `ios/` is reserved for the SwiftUI client (deferred — see MVP deadline note). Long-form design docs live in `docs/` (HANDOFF.md, JWT_AUTH_UNDERSTANDING.md, ML_RATING_UNDERSTANDING.md, ALEMBIC_NOTES.md, RATING_ENDPOINTS.md, FRIENDSHIPS_ENDPOINTS.md).
 
 ## Commands
 
@@ -102,12 +102,16 @@ Implemented:
 - PATCH  /outings/{id}                 → edit title (TYP-19)
 - DELETE /outings/{id}                 → 204; edit-gate; FK cascade behavior open (TYP-19)
 - POST   /outings/{id}/confirm | /unconfirm | /cancel                   (TYP-19, cascades to events)
-
-In progress (TYP-21 ratings):
-- POST   /place_ratings                → rate a place (0.0-10.0); always inserts new row
-- GET    /me/place_ratings             → user's ratings, deduped to latest-per-place via DISTINCT ON, sorted rating DESC
-- GET    /places/{place_id}/my_rating  → latest rating user has given this place; returns null if none (client falls back to rec score)
-- POST   /outings/{id}/rate            → write final_rating + per-event weight; cascades outing+events to completed
+- POST   /place_ratings                → rate a place (0.0-10.0); always inserts new row (TYP-21)
+- GET    /me/place_ratings             → user's ratings, deduped to latest-per-place via DISTINCT ON, sorted rating DESC (TYP-21)
+- GET    /places/{place_id}/my_rating  → latest rating user has given this place; returns null if none (TYP-21)
+- POST   /outings/{id}/rate            → write final_rating + per-event weight; cascades outing+events to completed (TYP-21)
+- POST   /friends/requests                          → send a friend request; idempotent on existing pending/accepted; auto-accepts if reverse pending exists; 422 on self-friend (TYP-22)
+- POST   /friends/requests/{user_id}/accept         → accept incoming request; mutates pending row + inserts mirror in one transaction (TYP-22)
+- POST   /friends/requests/{user_id}/reject         → 204; hard-deletes the pending row (TYP-22)
+- DELETE /me/friends/{user_id}                      → 204; deletes both rows in one OR-filter delete; 404 if not friends (TYP-22)
+- GET    /me/friends                                → hydrated list (user_id, display_name, created_at) of accepted friends (TYP-22)
+- GET    /me/friend_requests                        → hydrated list of incoming pending requests (TYP-22)
 
 Planned:
 - GET    /predict_event    → ML prediction (atomic recommender)
@@ -129,7 +133,7 @@ Planned:
 Environment variables in `backend/.env` (see `backend/.env.example`), loaded by `dotenv` in `app/main.py`:
 - `DATABASE_URL` — required by `app/db.py`
 - `SUPABASE_URL` — required by `app/auth.py` (used to build the JWKS URL)
-- `SUPABASE_KEY` — for client-side issuance (server validates via JWKS, not this key)
+- `SUPABASE_PUBLISHABLE_KEY` — Supabase's public/anon key, used as the `apikey` header on client-side auth calls (e.g., password sign-in to fetch a JWT). The server validates JWTs via JWKS, not this key.
 
 Auth flow: clients send `Authorization: Bearer <supabase_jwt>`. The server fetches Supabase's JWKS, verifies ES256 signatures, and trusts the `sub`/`email` claims. First-time `sub` UUIDs are auto-provisioned into `users`.
 
@@ -151,6 +155,7 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), and TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades) are complete. TYP-21 (ratings) is in progress: schemas + repository + `outings_service.rate` are committed; routes are still WIP. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades), TYP-21 (ratings: 4 endpoints — `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed), and TYP-22 (friendships: 6 endpoints — Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- Friendship status values follow the same `pending | accepted | rejected` CHECK pattern as RSVP fields, but `'rejected'` is currently unused at the application layer (reject hard-deletes; the constraint accepts the value if a future change wants soft-reject without a migration).
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
