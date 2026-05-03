@@ -36,7 +36,9 @@ def accept_friend_request(
     )
 
 
-@router.post("/friends/requests/{user_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/friends/requests/{user_id}/reject", status_code=status.HTTP_204_NO_CONTENT
+)
 def reject_friend_request(
     user_id: uuid.UUID,
     current_user: User = Depends(require_auth),
@@ -57,20 +59,18 @@ def unfriend(
         db, user_id=current_user.user_id, other_id=user_id
     )
 
+
 @router.get("/me/friends", response_model=list[FriendOut])
 def list_my_friends(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> list:
-    return friendships_repo.list_friends_for_user(
-        db, user_id=current_user.user_id
-    )
+    return friendships_repo.list_friends_for_user(db, user_id=current_user.user_id)
+
 
 @router.get("/me/friend_requests", response_model=list[FriendOut])
 def list_pending_friend_requests(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> list:
-    return friendships_repo.list_pending_for_user(
-        db, user_id=current_user.user_id
-    )
+    return friendships_repo.list_pending_for_user(db, user_id=current_user.user_id)

@@ -84,6 +84,11 @@ Place search infrastructure (TYP-18 migration `015dcc40c7ef`):
 - `places_name_trgm_idx` — GIN trigram on `name` for `ILIKE`/similarity queries
 - Search SQL lives in `app/repositories/places.py` and `app/repositories/saved_places.py` as raw `text()` because the earthdistance functions aren't first-class in SQLAlchemy ORM
 
+Friend feed infrastructure (TYP-23 migration `fe0d54be86d0`):
+- `place_ratings_user_created_idx` — composite `(user_id, created_at DESC)` for friend-feed rating reads
+- `saved_places_user_created_idx` — composite `(user_id, created_at DESC)` for friend-feed save reads
+- `outings_creator_completed_idx` — partial composite `(creator_id, completed_at DESC) WHERE status = 'completed' AND final_rating IS NOT NULL`; only indexes rows the feed actually reads
+
 ## API Endpoints
 
 Implemented:
@@ -112,6 +117,7 @@ Implemented:
 - DELETE /me/friends/{user_id}                      → 204; deletes both rows in one OR-filter delete; 404 if not friends (TYP-22)
 - GET    /me/friends                                → hydrated list (user_id, display_name, created_at) of accepted friends (TYP-22)
 - GET    /me/friend_requests                        → hydrated list of incoming pending requests (TYP-22)
+- GET    /me/feed                                   → cursor-paginated merged timeline of friends' ratings (latest per place via DISTINCT ON), saves, and rated+completed outings; `?limit=20&before=<iso8601>`; returns discriminated `FeedRatingOut | FeedSaveOut | FeedOutingOut` items + `next_cursor` (TYP-23)
 
 Planned:
 - GET    /predict_event    → ML prediction (atomic recommender)
