@@ -28,6 +28,7 @@ def feed_saves(
         query = query.filter(SavedPlace.created_at < before)
     return query.order_by(SavedPlace.created_at.desc()).limit(limit).all()
 
+
 def feed_outings(
     db: Session, *, friend_ids: list[uuid.UUID], before: datetime | None, limit: int
 ) -> list:
@@ -38,7 +39,7 @@ def feed_outings(
             Outing.outing_id,
             Outing.title,
             Outing.final_rating,
-            Outing.completed_at("created_at"),
+            Outing.completed_at.label("created_at"),
         )
         .join(User, Outing.creator_id == User.user_id)
         .filter(
@@ -79,11 +80,11 @@ def feed_ratings(
             ORDER BY pr.user_id, pr.place_id, pr.created_at DESC
         ) latest
         ORDER BY created_at DESC
-        LIMIT: limit
+        LIMIT :limit
     """
     params = {"friend_ids": friend_ids, "limit": limit}
 
     if before is not None:
         params["before"] = before
-    
+
     return db.execute(text(sql), params).all()

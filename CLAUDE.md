@@ -117,6 +117,7 @@ Implemented:
 - DELETE /me/friends/{user_id}                      → 204; deletes both rows in one OR-filter delete; 404 if not friends (TYP-22)
 - GET    /me/friends                                → hydrated list (user_id, display_name, created_at) of accepted friends (TYP-22)
 - GET    /me/friend_requests                        → hydrated list of incoming pending requests (TYP-22)
+- GET    /me/feed                                   → cursor-paginated merged timeline of friends' ratings (latest per place via DISTINCT ON), saves, and rated+completed outings; `?limit=20&before=<iso8601>`; returns discriminated `FeedRatingOut | FeedSaveOut | FeedOutingOut` items + `next_cursor` (TYP-23)
 
 Planned:
 - GET    /predict_event    → ML prediction (atomic recommender)
