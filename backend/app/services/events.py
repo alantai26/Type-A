@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.events import Event
+from app.repositories import event_invitations as event_invitations_repo
 from app.repositories import events as events_repo
 from app.repositories import outings as outings_repo
 
@@ -48,6 +49,10 @@ def create(
         sequence_position=sequence_position,
         scheduled_for=scheduled_for,
         weight=weight,
+    )
+
+    event_invitations_repo.insert_creator_self(
+        db, event_id=event.event_id, creator_id=creator_id
     )
 
     if outing is not None:
