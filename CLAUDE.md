@@ -137,7 +137,8 @@ Planned:
 ## Stack
 
 - **FastAPI** + Pydantic v2 + Uvicorn
-- **SQLAlchemy 2.0** + **Alembic** + **psycopg 3**
+- **SQLAlchemy 2.0** + **Alembic** + **psycopg 3** (`psycopg`/`psycopg-binary` pinned to `3.2.13` — earliest version with prebuilt wheels for Python 3.13; do not downgrade)
+- **Python 3.13.5** pinned via `backend/.python-version` (also matches local dev). Required because newer Pythons (3.14+) don't yet have prebuilt wheels for `pydantic-core`/`psycopg-binary` and Render's free build environment can't compile from Rust source (read-only Cargo cache).
 - **PostgreSQL** (`type_a_dev` on localhost:5432)
 - **scikit-learn / statsmodels** for ML inference
 - **Supabase** for auth (JWT issuance only — Supabase's Postgres is unused)
