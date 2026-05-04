@@ -12,6 +12,8 @@ from app.routes import outings as outings_routes
 from app.routes import place_ratings as place_ratings_routes
 from app.routes import friendships as friendships_routes
 from app.routes import feed as feed_routes
+from app.routes import event_invitations as event_invitations_routes
+from app.routes import outing_invitations as outing_invitations_routes
 
 app = FastAPI(
     title="Type A API",
@@ -34,6 +36,8 @@ app.include_router(outings_routes.router)
 app.include_router(place_ratings_routes.router)
 app.include_router(friendships_routes.router)
 app.include_router(feed_routes.router)
+app.include_router(event_invitations_routes.router)
+app.include_router(outing_invitations_routes.router)
 
 
 @app.get("/health")

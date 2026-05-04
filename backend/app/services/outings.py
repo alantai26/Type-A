@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.outings import Outing
 from app.repositories import events as events_repo
+from app.repositories import outing_invitations as outing_invitations_repo
 from app.repositories import outings as outings_repo
 from app.services.events import _check_editable
 from app.schemas.outings import EventWeight
@@ -18,7 +19,11 @@ def create(
     creator_id: uuid.UUID,
     title: str,
 ) -> Outing:
-    return outings_repo.create(db, creator_id=creator_id, title=title)
+    outing = outings_repo.create(db, creator_id=creator_id, title=title)
+    outing_invitations_repo.insert_creator_self(
+        db, outing_id=outing.outing_id, creator_id=creator_id
+    )
+    return outing
 
 
 def update(

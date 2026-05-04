@@ -61,8 +61,8 @@ saved_places(user_id*, place_id*)                                    ← composi
 place_ratings(rating_id, user_id, place_id, rating, created_at)      ← multiple ratings per user/place
 outings(outing_id, creator_id, title, status, scheduled_for?, completed_at?, final_rating?, derived_score?)
 events(event_id, creator_id, place_id?, custom_location_name?, outing_id?, sequence_position?, status, scheduled_for?, completed_at?, weight?)
-event_invitations(user_id*, event_id*, rsvp_status, ics_sent_at?)    ← composite PK
-outing_invitations(user_id*, outing_id*, rsvp_status, ics_sent_at?)  ← composite PK
+event_invitations(user_id*, event_id*, rsvp_status, ics_sent_at?, created_at)    ← composite PK
+outing_invitations(user_id*, outing_id*, rsvp_status, ics_sent_at?, created_at)  ← composite PK
 friendships(user_a_id*, user_b_id*, status, created_at)              ← composite PK, two rows per friendship
 comparisons(comparison_id, user_id, item_a_id, item_b_id, item_type, winner_id, created_at)
 attribution_outputs(attribution_id, user_id, place_id, attributed_effect, confidence_lower, confidence_upper, model_version, computed_at)
@@ -88,6 +88,9 @@ Friend feed infrastructure (TYP-23 migration `fe0d54be86d0`):
 - `place_ratings_user_created_idx` — composite `(user_id, created_at DESC)` for friend-feed rating reads
 - `saved_places_user_created_idx` — composite `(user_id, created_at DESC)` for friend-feed save reads
 - `outings_creator_completed_idx` — partial composite `(creator_id, completed_at DESC) WHERE status = 'completed' AND final_rating IS NOT NULL`; only indexes rows the feed actually reads
+
+Invitation timestamps (TYP-20 migration `3067d8b0ab6b`):
+- `event_invitations.created_at` and `outing_invitations.created_at` — `TIMESTAMPTZ NOT NULL DEFAULT now()`; backfilled at migration time so the `NOT NULL` is safe on existing rows. Powers the invitee's "invited X days ago" UX and is a candidate timestamp for surfacing invitations in `/me/feed` later.
 
 ## API Endpoints
 
@@ -118,6 +121,13 @@ Implemented:
 - GET    /me/friends                                → hydrated list (user_id, display_name, created_at) of accepted friends (TYP-22)
 - GET    /me/friend_requests                        → hydrated list of incoming pending requests (TYP-22)
 - GET    /me/feed                                   → cursor-paginated merged timeline of friends' ratings (latest per place via DISTINCT ON), saves, and rated+completed outings; `?limit=20&before=<iso8601>`; returns discriminated `FeedRatingOut | FeedSaveOut | FeedOutingOut` items + `next_cursor` (TYP-23)
+- POST   /events/{id}/invitations                   → creator-only bulk invite of friend user_ids; `ON CONFLICT DO NOTHING` idempotent; 422 on non-friends; returns hydrated `EventInvitationOut[]` with invitee display_name (TYP-20)
+- PATCH  /events/{id}/invitations/me                → invitee RSVP (`pending|accepted|rejected`, `Literal`-validated); 404 if not invited (TYP-20)
+- GET    /me/event_invitations                      → invitee's incoming list with embedded `EventOut`, inviter's display_name, and `created_at` for "invited X days ago" (TYP-20)
+- POST   /outings/{id}/invitations                  → outing variant of the bulk invite, same gates (TYP-20)
+- PATCH  /outings/{id}/invitations/me               → outing RSVP (TYP-20)
+- GET    /me/outing_invitations                     → invitee's incoming outings with embedded `OutingOut` (which itself embeds events) (TYP-20)
+- TYP-19 retrofit: event/outing creation now auto-inserts the creator into the relevant invitations table with `rsvp_status='accepted'` (idempotent via `ON CONFLICT DO NOTHING`)
 
 Planned:
 - GET    /predict_event    → ML prediction (atomic recommender)
@@ -161,7 +171,7 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). Don't rename without reading the design rationale in `docs/HANDOFF.md`.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades), TYP-21 (ratings: 4 endpoints — `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed), and TYP-22 (friendships: 6 endpoints — Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
+- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades), TYP-21 (ratings: 4 endpoints — `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed), TYP-22 (friendships: 6 endpoints — Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically), and TYP-20 (invitations: 6 endpoints — bulk invite by friend user_ids with creator-only edit-gate + friendship-gate, idempotent `ON CONFLICT DO NOTHING`, `/me`-scoped RSVP path, embedded event/outing on incoming list, creator auto-RSVP retrofit on TYP-19 create routes; `created_at` column added to both invitation tables in migration `3067d8b0ab6b`; ICS punted to iOS EventKit, magic links punted to a separate sub-ticket) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - Friendship status values follow the same `pending | accepted | rejected` CHECK pattern as RSVP fields, but `'rejected'` is currently unused at the application layer (reject hard-deletes; the constraint accepts the value if a future change wants soft-reject without a migration).
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
