@@ -35,7 +35,7 @@ alembic revision -m "msg"                  # create empty migration stub (then e
 alembic revision --autogenerate -m "msg"   # autogenerate from model diff
 ```
 
-No test framework or linter configured yet.
+No test framework configured yet. Lint with `ruff check app/` from `backend/` (config in `backend/pyproject.toml`: rules `E, F, I, B, UP`, line-length 88, isort with `app` as first-party).
 
 **Migration workflow:** Migration files in `backend/alembic/versions/` must be created via the alembic CLI — direct Write/Edit is blocked by a hook. Output the CLI command for the user to run; once the stub exists, you can edit its body.
 
@@ -47,7 +47,7 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
 - `backend/app/auth.py` — `require_auth` dependency: validates Supabase JWT (ES256, JWKS-cached), provisions a `users` row on first sight (uses JWT `sub` as `user_id`)
 - `backend/app/db.py` — SQLAlchemy engine + `get_db` session dependency
 - `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`)
-- `backend/app/services/` — business logic (currently empty; logic that's just one DB call lives directly in repositories)
+- `backend/app/services/` — business logic that orchestrates multiple repository calls or enforces cross-entity invariants (`events`, `outings`, `friendships`, `feed`, `event_invitations`, `outing_invitations`). Trivial single-call logic still lives directly in repositories.
 - `backend/app/repositories/` — data access layer
 - `backend/app/models/` — SQLAlchemy ORM models only
 - `backend/app/schemas/` — Pydantic request/response schemas (one file per resource: `users.py`, `places.py`, etc.)
@@ -128,11 +128,12 @@ Implemented:
 - PATCH  /outings/{id}/invitations/me               → outing RSVP (TYP-20)
 - GET    /me/outing_invitations                     → invitee's incoming outings with embedded `OutingOut` (which itself embeds events) (TYP-20)
 - TYP-19 retrofit: event/outing creation now auto-inserts the creator into the relevant invitations table with `rsvp_status='accepted'` (idempotent via `ON CONFLICT DO NOTHING`)
+- GET    /places/{place_id}/predict     → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; 404 if place missing. To be replaced by ridge regression once iOS is shipping real ratings.
+- GET    /outings/{outing_id}/predict   → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; no ownership check (any user can see their predicted score for any outing); 404 if outing missing. To be replaced by attribution model later.
 
 Planned:
-- GET    /predict_event    → ML prediction (atomic recommender)
-- GET    /predict_outing   → ML prediction with per-event breakdown (attribution model)
 - POST   /comparisons      → head-to-head ranking
+- Real implementations of `/places/{id}/predict` (ridge regression) and `/outings/{id}/predict` (attribution model) — stubs ship now to unblock iOS UI; real models trained once rating data exists
 
 ## Stack
 

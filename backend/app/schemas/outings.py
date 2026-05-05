@@ -35,3 +35,8 @@ class EventWeight(BaseModel):
 class OutingRateRequest(BaseModel):
     event_weights: list[EventWeight]
     final_rating: float = Field(ge=0, le=10)
+
+
+class OutingPredictionOut(BaseModel):
+    score: float
+    model_version: str

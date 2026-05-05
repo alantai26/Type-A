@@ -8,7 +8,13 @@ from app.db import get_db
 from app.models.outings import Outing
 from app.models.users import User
 from app.repositories import outings as outings_repo
-from app.schemas.outings import OutingCreate, OutingOut, OutingUpdate, OutingRateRequest
+from app.schemas.outings import (
+    OutingCreate,
+    OutingOut,
+    OutingPredictionOut,
+    OutingRateRequest,
+    OutingUpdate,
+)
 from app.services import outings as outings_service
 
 router = APIRouter(tags=["outings"])
@@ -116,3 +122,17 @@ def rate_outing(
     return outings_service.rate(
         db, outing, final_rating=body.final_rating, weights=body.event_weights
     )
+
+
+@router.get("/outings/{outing_id}/predict", response_model=OutingPredictionOut)
+def predict_outing(
+    outing_id: uuid.UUID,
+    current_user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> OutingPredictionOut:
+    if outings_repo.get(db, outing_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Outing not found",
+        )
+    return OutingPredictionOut(score=7.5, model_version="stub-v0")
