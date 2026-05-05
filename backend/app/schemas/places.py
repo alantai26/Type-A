@@ -12,3 +12,8 @@ class PlaceOut(BaseModel):
     longitude: float
     distance_m: float
     is_saved: bool
+
+
+class PlacePredictionOut(BaseModel):
+    score: float
+    model_version: str
