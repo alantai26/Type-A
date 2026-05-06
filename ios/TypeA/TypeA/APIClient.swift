@@ -13,6 +13,7 @@ final class APIClient {
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
+        d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
 
@@ -21,6 +22,9 @@ final class APIClient {
     func request<T: Decodable>(_ path: String, method: String = "GET") async throws -> T {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
+        if let token = KeychainStore.shared.get("auth_token") {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         let (data, response) = try await session.data(for: req)
         guard let http = response as? HTTPURLResponse else {
             throw APIError(statusCode: -1, body: "no response")
@@ -33,8 +37,4 @@ final class APIClient {
         }
         return try decoder.decode(T.self, from: data)
     }
-}
-
-struct Health: Decodable {
-    let status: String
 }

@@ -21,7 +21,7 @@ The composite entity is called `outing` rather than `night` because TypeA handle
 
 ## Repo Layout
 
-The Python backend lives in `backend/`. All commands below assume `cd backend` first. Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline; `ios/` is reserved for the SwiftUI client (deferred — see MVP deadline note). Long-form design docs live in `docs/` (HANDOFF.md, JWT_AUTH_UNDERSTANDING.md, ML_RATING_UNDERSTANDING.md, ALEMBIC_NOTES.md, RATING_ENDPOINTS.md, FRIENDSHIPS_ENDPOINTS.md).
+The Python backend lives in `backend/`. The SwiftUI iOS client lives in `ios/TypeA/` (TYP-25 onward). Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline. All backend commands below assume `cd backend` first. Long-form design docs live in `docs/` (HANDOFF.md, JWT_AUTH_UNDERSTANDING.md, ML_RATING_UNDERSTANDING.md, ALEMBIC_NOTES.md, RATING_ENDPOINTS.md, FRIENDSHIPS_ENDPOINTS.md, IOS_FOUNDATION.md).
 
 ## Commands
 
