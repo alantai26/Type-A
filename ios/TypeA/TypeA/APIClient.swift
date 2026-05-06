@@ -8,7 +8,7 @@ struct APIError: Error {
 final class APIClient {
     static let shared = APIClient()
 
-    let baseURL = URL(string: "https://type-a-api.onrender.com")!
+    let baseURL = AppConfig.apiBaseURL
     private let session = URLSession.shared
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()

@@ -6,13 +6,33 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D66233932FAAEE8C00D8D487 /* Local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = D66233912FAAEE8C00D8D487 /* Local.xcconfig */; };
+		D66233942FAAEE8C00D8D487 /* Local.example.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = D66233922FAAEE8C00D8D487 /* Local.example.xcconfig */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		D648191D2FAA8A3E002F304D /* TypeA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TypeA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D66233912FAAEE8C00D8D487 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
+		D66233922FAAEE8C00D8D487 /* Local.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.example.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D66233962FAAEF8100D8D487 /* Exceptions for "TypeA" folder in "TypeA" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D648191C2FAA8A3E002F304D /* TypeA */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D648191F2FAA8A3E002F304D /* TypeA */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D66233962FAAEF8100D8D487 /* Exceptions for "TypeA" folder in "TypeA" target */,
+			);
 			path = TypeA;
 			sourceTree = "<group>";
 		};
@@ -32,6 +52,8 @@
 		D64819142FAA8A3E002F304D = {
 			isa = PBXGroup;
 			children = (
+				D66233912FAAEE8C00D8D487 /* Local.xcconfig */,
+				D66233922FAAEE8C00D8D487 /* Local.example.xcconfig */,
 				D648191F2FAA8A3E002F304D /* TypeA */,
 				D648191E2FAA8A3E002F304D /* Products */,
 			);
@@ -94,6 +116,9 @@
 			);
 			mainGroup = D64819142FAA8A3E002F304D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D66233902FAAEBB900D8D487 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D648191E2FAA8A3E002F304D /* Products */;
 			projectDirPath = "";
@@ -109,6 +134,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D66233932FAAEE8C00D8D487 /* Local.xcconfig in Resources */,
+				D66233942FAAEE8C00D8D487 /* Local.example.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +154,7 @@
 /* Begin XCBuildConfiguration section */
 		D64819292FAA8A3F002F304D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D66233912FAAEE8C00D8D487 /* Local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -190,6 +218,7 @@
 		};
 		D648192A2FAA8A3F002F304D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D66233912FAAEE8C00D8D487 /* Local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -255,6 +284,7 @@
 				DEVELOPMENT_TEAM = 2JD5VQX9UZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TypeA/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +314,7 @@
 				DEVELOPMENT_TEAM = 2JD5VQX9UZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TypeA/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -324,6 +355,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D66233902FAAEBB900D8D487 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = D64819152FAA8A3E002F304D /* Project object */;
 }

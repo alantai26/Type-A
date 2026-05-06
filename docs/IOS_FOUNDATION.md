@@ -90,10 +90,17 @@ No SPM dependencies. No CocoaPods. No Tuist. Just the vanilla Apple toolchain.
 - **No model writeback / Encodable models.** All models are `Decodable`-only. When POST/PATCH endpoints get wired up, the relevant types add `Encodable`.
 - **No Identifiable, Hashable, Equatable conformances.** Add per type as the consuming SwiftUI code requires them.
 - **No error UI affordance beyond raw `APIError` text in `ContentView`.** The current "200 OK — status: ok" / "HTTP 4xx: ..." / "Network error: ..." rendering is debug-grade. Every real screen will need its own error states.
+- **No token refresh.** Supabase JWTs expire (default ~1 hour). When a request returns 401 because the access token is stale, the client should use the refresh token to get a new access token and retry the original request. Neither `APIClient` nor `KeychainStore` implements this yet. TYP-26 (or a small follow-up after it) needs to: (a) store both `access_token` and `refresh_token` in Keychain (separate keys), (b) add 401-handling inside `APIClient.request<T>` that calls Supabase's refresh endpoint, persists the new tokens, and retries once, (c) handle the refresh-also-failed case by deleting tokens and routing the user back to login. Without this, the user gets silently logged out the first time their token expires mid-session.
 
 ---
 
-## Picking up TYP-26 (Auth flow — login + register)
+## Picking up the next iOS ticket
+
+Per the iOS sequencing in `project_ios_first_sequencing.md` memory: **TYP-25 → TYP-10 → TYP-26 → 27 → 28 → 29 → 30 → 31**. So **TYP-10 (SwiftUI skeleton, 4 tabs)** is technically next — that's the tab-bar shell with placeholder views per tab. It doesn't depend on auth and unblocks all per-tab tickets. TYP-26 (auth) typically lands the user *into* the tab shell, so building the shell first makes sense.
+
+Below is the concrete starter for TYP-26 since it's the higher-leverage one (auth unlocks every authenticated endpoint), but TYP-10 should ship first.
+
+### TYP-26 (Auth flow — login + register)
 
 Concrete first steps when you start TYP-26:
 
@@ -105,6 +112,55 @@ Concrete first steps when you start TYP-26:
 6. **Decide where logged-in state lives.** Two common patterns: (a) an `@Observable` `AuthStore` singleton that exposes `var user: User?` and watches the keychain, (b) check `KeychainStore.shared.get("auth_token") != nil` directly at startup. (a) is cleaner for SwiftUI; (b) is fewer lines.
 
 The data model is wired — every endpoint you'll hit in TYP-26 (`/me`, `/me/friends`, etc.) already has its Swift type ready in `Models.swift`.
+
+---
+
+## Code recipes
+
+### Typed GET request
+```swift
+let user: User = try await APIClient.shared.request("/me")
+let outings: [Outing] = try await APIClient.shared.request("/me/outings")
+let feed: FeedResponse = try await APIClient.shared.request("/me/feed?limit=20")
+```
+
+### Persisting the JWT after login (TYP-26 will use this)
+```swift
+let token = supabaseSession.accessToken
+try KeychainStore.shared.set(token, for: "auth_token")
+// Every subsequent APIClient.shared.request(...) call now auto-attaches
+// `Authorization: Bearer <token>`. No further changes to call sites.
+```
+
+### Logging out
+```swift
+KeychainStore.shared.delete("auth_token")
+// Optionally route the user back to the login view
+```
+
+### Handling errors at a call site
+```swift
+do {
+    let user: User = try await APIClient.shared.request("/me")
+    // use user
+} catch let error as APIError {
+    // backend returned non-2xx; error.statusCode and error.body are available
+} catch {
+    // transport failure, timeout, JSON decode error
+}
+```
+
+### Decoding a feed response (discriminated union)
+```swift
+let response: FeedResponse = try await APIClient.shared.request("/me/feed?limit=20")
+for item in response.items {
+    switch item {
+    case .rating(let r): print("\(r.displayName) rated \(r.placeName) \(r.rating)")
+    case .save(let s):   print("\(s.displayName) saved \(s.placeName)")
+    case .outing(let o): print("\(o.displayName) finished \(o.title)")
+    }
+}
+```
 
 ---
 
