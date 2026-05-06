@@ -1,4 +1,4 @@
-# Type A
+# TypeA
 
 The social planner that learns what makes a great outing for you, then predicts how the next one will go before you commit.
 
@@ -10,7 +10,7 @@ Some occasions *are* multi-stop — birthdays, special occasions, a real Friday 
 
 ### Naming rationale
 
-The composite entity is called an `outing` rather than a `night` because Type A handles daytime sequences (brunch → hike → dinner) just as much as evening ones. The atomic entity is called an `event` rather than a `plan` because "plan" is reserved for the verb in product UI ("to plan an event"). In grouped UI copy, an event in a sequence is referred to as a "stop" — that's a role word, not a schema name.
+The composite entity is called an `outing` rather than a `night` because TypeA handles daytime sequences (brunch → hike → dinner) just as much as evening ones. The atomic entity is called an `event` rather than a `plan` because "plan" is reserved for the verb in product UI ("to plan an event"). In grouped UI copy, an event in a sequence is referred to as a "stop" — that's a role word, not a schema name.
 
 ## Two ML Systems
 
