@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Type A** — social planner iOS app that predicts how much you'll enjoy an outing based on past ratings. Closed-loop feedback: predict → commit → rate → learn → better prediction.
+**TypeA** — social planner iOS app that predicts how much you'll enjoy an outing based on past ratings. Closed-loop feedback: predict → commit → rate → learn → better prediction.
 
 Two ML systems:
 - **Atomic Recommender:** Ridge regression predicting individual event ratings (1-10) with confidence intervals
@@ -17,7 +17,7 @@ Two ML systems:
 - **Stop** — UI/copy word for an event when it appears as part of an outing's sequence. Not a schema name. Used in button text like "+ Add another stop."
 - **Plan / Planning** — verb only. Users *plan* events. The iOS tab is called "Plan." Never used as a noun in this codebase.
 
-The composite entity is called `outing` rather than `night` because Type A handles daytime sequences too. The atomic entity is called `event` rather than `plan` because `plan` is reserved for the verb.
+The composite entity is called `outing` rather than `night` because TypeA handles daytime sequences too. The atomic entity is called `event` rather than `plan` because `plan` is reserved for the verb.
 
 ## Repo Layout
 
