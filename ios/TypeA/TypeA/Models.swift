@@ -11,6 +11,10 @@ struct User: Decodable {
     let createdAt: Date
 }
 
+struct UserUpdate: Encodable {
+    let displayName: String?
+}
+
 struct Place: Decodable {
     let placeId: UUID
     let name: String

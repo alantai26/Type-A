@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		D66233932FAAEE8C00D8D487 /* Local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = D66233912FAAEE8C00D8D487 /* Local.xcconfig */; };
 		D66233942FAAEE8C00D8D487 /* Local.example.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = D66233922FAAEE8C00D8D487 /* Local.example.xcconfig */; };
+		D66233A72FABDF8200D8D487 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D66233A62FABDF8200D8D487 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D66233A72FABDF8200D8D487 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,6 +57,7 @@
 				D66233912FAAEE8C00D8D487 /* Local.xcconfig */,
 				D66233922FAAEE8C00D8D487 /* Local.example.xcconfig */,
 				D648191F2FAA8A3E002F304D /* TypeA */,
+				D66233A52FABDF8200D8D487 /* Frameworks */,
 				D648191E2FAA8A3E002F304D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,6 +68,13 @@
 				D648191D2FAA8A3E002F304D /* TypeA.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D66233A52FABDF8200D8D487 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -87,6 +97,7 @@
 			);
 			name = TypeA;
 			packageProductDependencies = (
+				D66233A62FABDF8200D8D487 /* Supabase */,
 			);
 			productName = TypeA;
 			productReference = D648191D2FAA8A3E002F304D /* TypeA.app */;
@@ -366,6 +377,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D66233A62FABDF8200D8D487 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D66233902FAAEBB900D8D487 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D64819152FAA8A3E002F304D /* Project object */;
 }
