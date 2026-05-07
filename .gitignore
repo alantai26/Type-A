@@ -27,6 +27,7 @@ build/
 *.xcodeproj/xcuserdata/
 DerivedData/
 .DS_Store
+ios/TypeA/Local.xcconfig
 
 # Jupyter
 .ipynb_checkpoints/

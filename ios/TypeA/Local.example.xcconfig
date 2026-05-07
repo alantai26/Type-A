@@ -1,0 +1,18 @@
+// TypeA iOS — local config template
+//
+// 1. Copy this file to `Local.xcconfig` (same directory).
+// 2. Fill in real values from the Supabase dashboard + your Render URL.
+// 3. Wire into the Xcode project: PROJECT → Info → Configurations → set
+//    Debug + Release to use `Local`.
+// 4. Bundle reads keys via Info.plist entries (TARGET → Info → Custom iOS
+//    Target Properties): `SupabaseURL = $(SUPABASE_URL)`, etc.
+//
+// `Local.xcconfig` is gitignored; this template is committed.
+//
+// xcconfig parser quirk: `//` always starts a comment, so URLs need a
+// `$()` empty-interpolation escape — `https:/$()/example.com` resolves
+// to `https://example.com` at build time.
+
+SUPABASE_URL = https:/$()/YOUR-PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY = YOUR-SUPABASE-PUBLISHABLE-KEY
+API_BASE_URL = https:/$()/type-a-api.onrender.com
