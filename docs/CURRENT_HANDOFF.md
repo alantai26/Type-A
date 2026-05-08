@@ -6,6 +6,14 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-05-08 — TYP-10 merged: 4-tab shell shipping
+- **TYP-10 merged**: `TabView` with 4 tabs (Feed / Plan / Search / Profile). All wired through `RootView → MainTabView` when authenticated.
+- **MainView lifted into `ProfileView`** — greeting + email + logout now live in the Profile tab. `MainView.swift` deleted.
+- **Each tab wraps its own `NavigationStack`** so push history is independent per tab; bottom bar persists across pushes within a tab.
+- **Feed / Plan / Search show "Coming soon" empty states** styled per design system (orange icon-in-circle + rounded title + secondary subtext). Real content arrives in per-tab content tickets.
+- **Tab icons shipped**: Feed = `newspaper`, Plan = `calendar`, Search = `magnifyingglass`, Profile = `person.circle` — matches the 05-07-later mockup decision.
+- See `docs/TYP_10_HANDOFF.md` for the SwiftUI mechanics walkthrough (TabView, `.tabItem`, NavigationStack-per-tab, view lifecycle).
+
 ### 2026-05-07 (later) — Feed and Plan flow mockups locked
 
 #### Feed tab — final design
@@ -101,7 +109,8 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 - **Design system applied** to all 3 screens (Login, Signup, MainView)
 - **Networking**: APIClient with async/await, JSON encode/decode, generic typed responses, bearer auto-attach via Supabase SDK
 - **Feed and Plan mockups locked** as of 2026-05-07. Use them as spec for the per-tab tickets.
-- **Pending**: TYP-10 tab shell + 4 per-tab content tickets + TYP-27/28/29/30 sub-screens + TYP-31 TestFlight
+- **4-tab shell shipping** (TYP-10) — Feed/Plan/Search show "Coming soon", Profile is fully functional with greeting + email + logout.
+- **Pending**: 4 per-tab content tickets + TYP-27/28/29/30 sub-screens + TYP-31 TestFlight
 
 ### ML
 - **Schema ready**: `outings.derived_score` (frozen at confirm), `attribution_outputs.attributed_effect` (per-user per-place), `events.weight` (per-stop slider)
@@ -124,7 +133,7 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 
 ## Pointers — where to look
 
-- **Per-ticket deep-dives**: `docs/TYP_25_HANDOFF.md`, `docs/TYP_26_HANDOFF.md`
+- **Per-ticket deep-dives**: `docs/TYP_25_HANDOFF.md`, `docs/TYP_26_HANDOFF.md`, `docs/TYP_10_HANDOFF.md`
 - **Endpoint catalogs**: `docs/RATING_ENDPOINTS.md`, `docs/FRIENDSHIPS_ENDPOINTS.md`
 - **Architectural understanding**: `docs/JWT_AUTH_UNDERSTANDING.md`, `docs/ML_RATING_UNDERSTANDING.md`, `docs/ALEMBIC_NOTES.md`
 - **Project conventions**: `CLAUDE.md` (root)

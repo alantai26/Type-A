@@ -6,7 +6,7 @@ struct FeedView: View {
             VStack(spacing: 16) {
                 Spacer()
 
-                Image(systemName: "square.stack")
+                Image(systemName: "newspaper")
                     .font(.system(size: 32, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 72, height: 72)

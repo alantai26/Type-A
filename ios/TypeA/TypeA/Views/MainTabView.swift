@@ -3,8 +3,8 @@ import SwiftUI
 struct MainTabView: View {                                           
     var body: some View {
         TabView {
-            FeedView()                                               
-                .tabItem { Label("Feed", systemImage: "square.stack")
+            FeedView()
+                .tabItem { Label("Feed", systemImage: "newspaper")
                 }                                                                   
             PlanView()                                               
                 .tabItem { Label("Plan", systemImage: "calendar")                                    
