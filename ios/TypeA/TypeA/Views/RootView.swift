@@ -8,7 +8,7 @@ struct RootView: View {
             if authStore.isInitializing {
                 ProgressView("Loading...")
             } else if authStore.isAuthenticated {
-                MainView()
+                MainTabView()
             } else {
                 LoginView()
             }
