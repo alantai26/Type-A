@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MainView: View {
+struct ProfileView: View {
     @Environment(AuthStore.self) private var authStore
     @State private var isSigningOut = false
 
