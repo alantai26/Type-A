@@ -17,10 +17,12 @@ private struct EmptyStateSpec {
     let title: String
     let subtext: String
     let ctaLabel: String
+    let targetTab: AppTab
 }
 
 struct ProfileView: View {
     @Environment(AuthStore.self) private var authStore
+    @Environment(TabSelectionStore.self) private var tabSelection
     @State private var selectedTab: ProfileTab = .places
     @State private var isSigningOut = false
 
@@ -178,7 +180,7 @@ struct ProfileView: View {
                 .padding(.horizontal, 24)
 
             Button {
-                // CTA routing — wire when MainTabView exposes a tab selection binding
+                tabSelection.current = spec.targetTab
             } label: {
                 Text(spec.ctaLabel)
                     .font(.system(size: 14, weight: .semibold))
@@ -201,21 +203,24 @@ struct ProfileView: View {
                 icon: "star",
                 title: "No places yet",
                 subtext: "Click Search and rate your first place!",
-                ctaLabel: "Find places to rate"
+                ctaLabel: "Find places to rate",
+                targetTab: .search
             )
         case .outings:
             return EmptyStateSpec(
                 icon: "calendar",
                 title: "No outings yet",
                 subtext: "Plan your first outing and rate it!",
-                ctaLabel: "Plan an outing"
+                ctaLabel: "Plan an outing",
+                targetTab: .plan
             )
         case .saved:
             return EmptyStateSpec(
                 icon: "bookmark",
                 title: "Nothing saved yet",
                 subtext: "Search and save a place you want to go!",
-                ctaLabel: "Find places"
+                ctaLabel: "Find places",
+                targetTab: .search
             )
         }
     }
