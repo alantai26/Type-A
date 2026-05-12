@@ -6,6 +6,24 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-05-12 — TYP-58 built (not yet merged): Profile Places list populated
+
+- **Backend hydration**: `GET /me/place_ratings` now returns `place_name` and `category` joined from `places`. Same flat-field + `from_attributes=True` pattern as `feed_saves`. Schema (`PlaceRatingOut`), repository (`list_by_user`), and route changed. No migration.
+- **iOS Profile Places tab populated**: tri-state rendering (`nil` = ProgressView, `[]` = existing empty state, populated = ranked list). Ranked rows show rank # + 32pt icon-on-tint placeholder + name/category + tier-colored score pill. Pull-to-refresh added.
+- **Tier-coloured score pills locked** at thresholds 6.7 (green, "fun") and 3.4 (amber → red). Chosen by Alan as cleaner thirds of 0–10; supersedes the §4 spec's 7.0 / 4.0 boundaries for visual purposes. Backend tier ranges in the comparison algorithm (TYP-45) stay 7.0–10.0 / 4.0–6.9 / 0.0–3.9 — different concern.
+- **Dev seed script**: `backend/scripts/seed_dev_data.py` inserts the Figma's 5 Boston places + ratings + (idempotently) patches the user's `display_name` away from the auto-provisioner's email-prefix fallback. Safety rail refuses to write to non-local DBs without explicit `yes`.
+- **Local dev loop documented**: simulator-loopback bug on some Xcode versions worked around by binding uvicorn to `0.0.0.0` + pointing `Local.xcconfig` at the Mac's LAN IP. `Local.xcconfig` MUST NOT be committed with the LAN IP — break for Render builds and other devs.
+- **Status**: PR not yet opened. Branch `typ-58-ios-profile-places-list-populated` has all work locally. Next session's first move is commit + push + PR + Linear close.
+- See `docs/TYP_58_HANDOFF.md` for the full per-ticket breakdown.
+
+### 2026-05-11 — TYP-38 slice 1 merged: Profile empty state + CTA tab switching
+- **Profile tab empty state shipped**: identity block (orange initials avatar + name + bio placeholder), `0 friends` card, 3-tab strip (Places / Outings / Saved with zero counts), per-tab empty cards routing to Search / Plan / Search respectively. Temporary Logout button still at bottom — moves to gear sheet later.
+- **New `TabSelectionStore` introduced** at `ios/TypeA/TypeA/TabSelectionStore.swift` — `@Observable` class holding the active `AppTab`, injected at app root the same way as `AuthStore`. `MainTabView` binds it into `TabView(selection:)` for two-way sync with the bottom tab bar. Any view can write `tabSelection.current = .search` to switch tabs. Reuse for future cross-view shared state (FriendsStore, FeedStore, etc.) before reaching for `@AppStorage` or singletons.
+- **Empty-state copy locked** (in TYP-38 ticket + per-ticket handoff): Places → "Click Search and rate your first place!" / Outings → "Plan your first outing and rate it!" / Saved → "Search and save a place you want to go!".
+- **New docs**: `docs/TYP_38_HANDOFF.md` (per-ticket status + remaining slices), `docs/TAB_SWITCHING_UNDERSTANDING.md` (plain-language explainer of the Observable + Environment pattern with stadium scoreboard analogy).
+- **TYP-38 NOT closed** — populated Places/Outings/Saved lists, real friends count (needs TYP-43), and settings sheet (separate follow-up ticket) still ahead. Recommended next slice: populated Places list (`GET /me/place_ratings` from TYP-21 already works).
+- **Out of session** (locked 05-09 but worth surfacing again): all 10 §7 open questions from `docs/05-09_HANDOFF.md` resolved. Path B for Plan creation (client-side state until Continue, TYP-46 cancelled). Re-rating overwrites. Re-tier warns. Comparison ranking uses pure binary search.
+
 ### 2026-05-08 — TYP-10 merged: 4-tab shell shipping
 - **TYP-10 merged**: `TabView` with 4 tabs (Feed / Plan / Search / Profile). All wired through `RootView → MainTabView` when authenticated.
 - **MainView lifted into `ProfileView`** — greeting + email + logout now live in the Profile tab. `MainView.swift` deleted.

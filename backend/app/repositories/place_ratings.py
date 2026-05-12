@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, aliased
 
 from app.models.place_ratings import PlaceRating
+from app.models.places import Place
 
 
 def create(
@@ -24,7 +25,7 @@ def create(
     return place_rating
 
 
-def list_by_user(db: Session, user_id: uuid.UUID) -> list[PlaceRating]:
+def list_by_user(db: Session, user_id: uuid.UUID) -> list:
     inner = (
         select(PlaceRating)
         .where(PlaceRating.user_id == user_id)
@@ -33,7 +34,20 @@ def list_by_user(db: Session, user_id: uuid.UUID) -> list[PlaceRating]:
         .subquery()
     )
     latest = aliased(PlaceRating, inner)
-    return list(db.scalars(select(latest).order_by(latest.rating.desc())).all())
+    return (
+        db.query(
+            latest.rating_id,
+            latest.user_id,
+            latest.place_id,
+            latest.rating,
+            latest.created_at,
+            Place.name.label("place_name"),
+            Place.category,
+        )
+        .join(Place, latest.place_id == Place.place_id)
+        .order_by(latest.rating.desc())
+        .all()
+    )
 
 
 def get_latest_for_user_place(
