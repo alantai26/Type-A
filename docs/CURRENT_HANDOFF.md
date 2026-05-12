@@ -6,14 +6,15 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
-### 2026-05-12 — TYP-58 built (not yet merged): Profile Places list populated
+### 2026-05-12 — TYP-58 merged: Profile Places list populated
 
+- **Merged in PR #22** (commit `2b32b74`). Branch `typ-58-ios-profile-places-list-populated`.
 - **Backend hydration**: `GET /me/place_ratings` now returns `place_name` and `category` joined from `places`. Same flat-field + `from_attributes=True` pattern as `feed_saves`. Schema (`PlaceRatingOut`), repository (`list_by_user`), and route changed. No migration.
 - **iOS Profile Places tab populated**: tri-state rendering (`nil` = ProgressView, `[]` = existing empty state, populated = ranked list). Ranked rows show rank # + 32pt icon-on-tint placeholder + name/category + tier-colored score pill. Pull-to-refresh added.
 - **Tier-coloured score pills locked** at thresholds 6.7 (green, "fun") and 3.4 (amber → red). Chosen by Alan as cleaner thirds of 0–10; supersedes the §4 spec's 7.0 / 4.0 boundaries for visual purposes. Backend tier ranges in the comparison algorithm (TYP-45) stay 7.0–10.0 / 4.0–6.9 / 0.0–3.9 — different concern.
 - **Dev seed script**: `backend/scripts/seed_dev_data.py` inserts the Figma's 5 Boston places + ratings + (idempotently) patches the user's `display_name` away from the auto-provisioner's email-prefix fallback. Safety rail refuses to write to non-local DBs without explicit `yes`.
 - **Local dev loop documented**: simulator-loopback bug on some Xcode versions worked around by binding uvicorn to `0.0.0.0` + pointing `Local.xcconfig` at the Mac's LAN IP. `Local.xcconfig` MUST NOT be committed with the LAN IP — break for Render builds and other devs.
-- **Status**: PR not yet opened. Branch `typ-58-ios-profile-places-list-populated` has all work locally. Next session's first move is commit + push + PR + Linear close.
+- **Next**: TYP-59 (Outings list) is the natural follow-up. TYP-60 (Saved) blocked on TYP-47, TYP-62 (friends count) blocked on TYP-43, TYP-61 (settings sheet) standalone.
 - See `docs/TYP_58_HANDOFF.md` for the full per-ticket breakdown.
 
 ### 2026-05-11 — TYP-38 slice 1 merged: Profile empty state + CTA tab switching
