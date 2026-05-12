@@ -31,7 +31,7 @@ def create_place_rating(
 def list_my_place_ratings(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
-) -> list[PlaceRating]:
+):
     return place_ratings_repo.list_by_user(db, current_user.user_id)
 
 

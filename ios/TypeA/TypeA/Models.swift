@@ -114,3 +114,13 @@ struct FeedResponse: Decodable {
     let items: [FeedItem]
     let nextCursor: Date?
 }
+
+struct PlaceRating: Decodable {
+    let ratingId: UUID
+    let userId: UUID
+    let placeId: UUID
+    let rating: Double
+    let createdAt: Date
+    let placeName: String
+    let category: String
+}

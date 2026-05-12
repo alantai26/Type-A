@@ -17,3 +17,5 @@ class PlaceRatingOut(BaseModel):
     place_id: uuid.UUID
     rating: float
     created_at: datetime
+    place_name: str
+    category: str

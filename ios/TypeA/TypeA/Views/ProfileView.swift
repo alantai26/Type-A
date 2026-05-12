@@ -25,6 +25,7 @@ struct ProfileView: View {
     @Environment(TabSelectionStore.self) private var tabSelection
     @State private var selectedTab: ProfileTab = .places
     @State private var isSigningOut = false
+    @State private var placeRatings: [PlaceRating]?
 
     var body: some View {
         ScrollView {
@@ -36,15 +37,13 @@ struct ProfileView: View {
                     .padding(.top, 20)
                 tabStrip
                     .padding(.top, 28)
-                emptyStateCard
-                    .padding(.top, 40)
-                Spacer(minLength: 24)
-                logoutButton
-                    .padding(.top, 48)
-                    .padding(.bottom, 24)
+                tabContent
+                    .padding(.top, 20)
             }
             .padding(.horizontal, 24)
         }
+        .task { await loadPlaceRatings() }
+        .refreshable { await loadPlaceRatings() }
     }
 
     private var headerRow: some View {
@@ -144,7 +143,7 @@ struct ProfileView: View {
                 HStack(spacing: 6) {
                     Text(tab.title)
                         .font(.system(size: 15, weight: .semibold))
-                    Text("0")
+                    Text("\(countFor(tab: tab))")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
@@ -156,6 +155,127 @@ struct ProfileView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .places:
+            if let ratings = placeRatings {
+                if ratings.isEmpty {
+                    emptyStateCard
+                } else {
+                    placesList(ratings)
+                }
+            } else {
+                ProgressView()
+                    .padding(.vertical, 60)
+            }
+        case .outings, .saved:
+            emptyStateCard
+        }
+    }
+
+    private func placesList(_ ratings: [PlaceRating]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(ratings.enumerated()), id: \.element.ratingId) { idx, rating in
+                placeRatingRow(rank: idx + 1, rating: rating)
+                if idx < ratings.count - 1 {
+                    Divider()
+                }
+            }
+        }
+    }
+
+    private func placeRatingRow(rank: Int, rating: PlaceRating) -> some View {
+        HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, alignment: .leading)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor.opacity(0.15))
+                Image(systemName: iconName(for: rating.category))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rating.placeName)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(rating.category)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            scorePill(rating.rating)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private func scorePill(_ rating: Double) -> some View {
+        let colors = scoreColors(for: rating)
+        return Text(String(format: "%.1f", rating))
+            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .foregroundStyle(colors.text)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(colors.bg)
+            .clipShape(Capsule())
+    }
+
+    private func scoreColors(for rating: Double) -> (bg: Color, text: Color) {
+        if rating >= 6.7 {
+            return (
+                Color(red: 0.91, green: 0.97, blue: 0.93),
+                Color(red: 0.12, green: 0.54, blue: 0.25)
+            )
+        } else if rating >= 3.4 {
+            return (
+                Color(red: 1.00, green: 0.96, blue: 0.90),
+                Color(red: 0.55, green: 0.41, blue: 0.08)
+            )
+        } else {
+            return (
+                Color(red: 0.99, green: 0.93, blue: 0.93),
+                Color(red: 0.78, green: 0.16, blue: 0.16)
+            )
+        }
+    }
+
+    private func countFor(tab: ProfileTab) -> Int {
+        switch tab {
+        case .places: return placeRatings?.count ?? 0
+        case .outings: return 0
+        case .saved: return 0
+        }
+    }
+
+    private func iconName(for category: String) -> String {
+        switch category.lowercased() {
+        case "activity": return "flag.fill"
+        case "restaurant": return "fork.knife"
+        case "bar", "cocktail bar": return "wineglass"
+        case "brewery", "beer": return "mug.fill"
+        case "cafe", "coffee": return "cup.and.saucer.fill"
+        case "park": return "tree.fill"
+        default: return "mappin"
+        }
+    }
+
+    private func loadPlaceRatings() async {
+        do {
+            let ratings: [PlaceRating] = try await APIClient.shared.request("/me/place_ratings")
+            placeRatings = ratings
+        } catch {
+            print("ProfileView: failed to load /me/place_ratings — \(error)")
+            placeRatings = []
+        }
     }
 
     private var emptyStateCard: some View {
