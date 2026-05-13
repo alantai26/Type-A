@@ -15,6 +15,7 @@ Prints the connected database host as a sanity check before writing.
 import argparse
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -27,6 +28,8 @@ load_dotenv()
 from sqlalchemy import select  # noqa: E402
 
 from app.db import SessionLocal  # noqa: E402
+from app.models.events import Event  # noqa: E402
+from app.models.outings import Outing  # noqa: E402
 from app.models.place_ratings import PlaceRating  # noqa: E402
 from app.models.places import Place  # noqa: E402
 from app.models.users import User  # noqa: E402
@@ -37,6 +40,14 @@ PLACES_AND_RATINGS = [
     ("Bar Lyon", "Restaurant", 42.3406, -71.0734, 8.0),
     ("Tasty Burger", "Restaurant", 42.3505, -71.0594, 7.6),
     ("Tatte Bakery", "Cafe", 42.3580, -71.0680, 7.2),
+]
+
+# (title, days_ago, final_rating, [place_name, ...])
+# days_ago controls completed_at — most-recent first in TYP-59's Profile list.
+OUTINGS = [
+    ("Friday Brewery Night", 3, 8.7, ["Trillium Brewing", "Tasty Burger"]),
+    ("Saturday Day Out", 10, 9.2, ["Top Golf", "Bar Lyon"]),
+    ("Coffee & Drinks", 21, 7.5, ["Tatte Bakery", "Bar Lyon"]),
 ]
 
 
@@ -85,6 +96,49 @@ def main() -> None:
         )
         db.add(rating)
         print(f"  + rating: {name} = {score}")
+
+    for title, days_ago, final_rating, place_names in OUTINGS:
+        existing = db.scalar(
+            select(Outing).where(
+                Outing.creator_id == user.user_id,
+                Outing.title == title,
+            )
+        )
+        if existing is not None:
+            print(f"  = outing exists: {title}")
+            continue
+
+        completed_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+        outing = Outing(
+            creator_id=user.user_id,
+            title=title,
+            status="completed",
+            scheduled_for=completed_at,
+            completed_at=completed_at,
+            final_rating=final_rating,
+        )
+        db.add(outing)
+        db.flush()
+
+        equal_weight = 1.0 / len(place_names)
+        for position, p_name in enumerate(place_names, start=1):
+            place = db.scalar(select(Place).where(Place.name == p_name))
+            if place is None:
+                print(f"  ! missing place for outing event: {p_name}")
+                continue
+            event = Event(
+                creator_id=user.user_id,
+                place_id=place.place_id,
+                outing_id=outing.outing_id,
+                sequence_position=position,
+                status="completed",
+                scheduled_for=completed_at,
+                completed_at=completed_at,
+                weight=equal_weight,
+            )
+            db.add(event)
+
+        print(f"  + outing: {title} = {final_rating} ({len(place_names)} stops)")
 
     db.commit()
     print("Done.")
