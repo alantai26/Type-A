@@ -26,6 +26,7 @@ struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .places
     @State private var isSigningOut = false
     @State private var placeRatings: [PlaceRating]?
+    @State private var outings: [Outing]?
 
     var body: some View {
         ScrollView {
@@ -42,8 +43,16 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 24)
         }
-        .task { await loadPlaceRatings() }
-        .refreshable { await loadPlaceRatings() }
+        .task {
+            async let p: () = loadPlaceRatings()
+            async let o: () = loadOutings()
+            _ = await (p, o)
+        }
+        .refreshable {
+            async let p: () = loadPlaceRatings()
+            async let o: () = loadOutings()
+            _ = await (p, o)
+        }
     }
 
     private var headerRow: some View {
@@ -171,7 +180,18 @@ struct ProfileView: View {
                 ProgressView()
                     .padding(.vertical, 60)
             }
-        case .outings, .saved:
+        case .outings:
+            if let outings {
+                if outings.isEmpty {
+                    emptyStateCard
+                } else {
+                    outingsList(outings)
+                }
+            } else {
+                ProgressView()
+                    .padding(.vertical, 60)
+            }
+        case .saved:
             emptyStateCard
         }
     }
@@ -185,6 +205,55 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    private func outingsList(_ outings: [Outing]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(outings.enumerated()), id: \.element.outingId) { idx, outing in
+                outingRow(rank: idx + 1, outing: outing)
+                if idx < outings.count - 1 {
+                    Divider()
+                }
+            }
+        }
+    }
+
+    private func outingRow(rank: Int, outing: Outing) -> some View {
+        HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, alignment: .leading)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor.opacity(0.15))
+                Image(systemName: "calendar")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(outing.title)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(outingMeta(outing))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            scorePill(outing.finalRating ?? 0)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private func outingMeta(_ outing: Outing) -> String {
+        let stops = "\(outing.events.count) stops"
+        guard let date = outing.completedAt else { return stops }
+        let dateStr = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return "\(stops) · \(dateStr)"
     }
 
     private func placeRatingRow(rank: Int, rating: PlaceRating) -> some View {
@@ -251,7 +320,7 @@ struct ProfileView: View {
     private func countFor(tab: ProfileTab) -> Int {
         switch tab {
         case .places: return placeRatings?.count ?? 0
-        case .outings: return 0
+        case .outings: return outings?.count ?? 0 
         case .saved: return 0
         }
     }
@@ -275,6 +344,19 @@ struct ProfileView: View {
         } catch {
             print("ProfileView: failed to load /me/place_ratings — \(error)")
             placeRatings = []
+        }
+    }
+
+    private func loadOutings() async {
+        do {
+            let allOutings: [Outing] = try await APIClient.shared.request("/me/outings")
+                
+            outings = allOutings
+                .filter { $0.status == "completed" && $0.finalRating != nil }
+                .sorted { ($0.finalRating ?? 0) > ($1.finalRating ?? 0) }
+        } catch {
+            print("ProfileView: failed to load /me/outings — \(error)")
+            outings = []
         }
     }
 
