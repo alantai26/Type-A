@@ -32,28 +32,52 @@ _SEARCH_SQL = text("""
     LIMIT 50
 """)
 
+# Nearby-only mode: q omitted, all places within radius_m returned by distance.
+_NEARBY_SQL = text("""
+    SELECT
+        p.place_id,
+        p.name,
+        p.latitude,
+        p.longitude,
+        earth_distance(
+            ll_to_earth(p.latitude, p.longitude),
+            ll_to_earth(:lat, :lng)
+        ) AS distance_m,
+        (sp.user_id IS NOT NULL) AS is_saved
+    FROM places p
+    LEFT JOIN saved_places sp
+        ON sp.place_id = p.place_id
+        AND sp.user_id = :user_id
+    WHERE earth_box(ll_to_earth(:lat, :lng), :radius_m)
+            @> ll_to_earth(p.latitude, p.longitude)
+        AND earth_distance(
+                ll_to_earth(p.latitude, p.longitude),
+                ll_to_earth(:lat, :lng)
+            ) < :radius_m
+    ORDER BY distance_m ASC
+    LIMIT 50
+""")
+
 
 def search_places(
     db: Session,
     *,
-    q: str,
+    q: str | None,
     lat: float,
     lng: float,
     radius_m: float,
     user_id: uuid.UUID,
 ) -> list[dict]:
-    rows = (
-        db.execute(
-            _SEARCH_SQL,
-            {
-                "q": f"%{q}%",
-                "lat": lat,
-                "lng": lng,
-                "radius_m": radius_m,
-                "user_id": user_id,
-            },
-        )
-        .mappings()
-        .all()
-    )
+    params: dict = {
+        "lat": lat,
+        "lng": lng,
+        "radius_m": radius_m,
+        "user_id": user_id,
+    }
+    if q is None:
+        sql = _NEARBY_SQL
+    else:
+        sql = _SEARCH_SQL
+        params["q"] = f"%{q}%"
+    rows = db.execute(sql, params).mappings().all()
     return [dict(r) for r in rows]

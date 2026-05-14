@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.models.saved_places import SavedPlace
 
-_LIST_SQL = text("""
+# With caller location: compute distance, sort by distance.
+_LIST_WITH_DISTANCE_SQL = text("""
     SELECT
         p.place_id,
         p.name,
@@ -23,15 +24,40 @@ _LIST_SQL = text("""
     ORDER BY distance_m ASC
 """)
 
+# No caller location (Profile-tab use case): no distance, sort alphabetically.
+_LIST_NO_DISTANCE_SQL = text("""
+    SELECT
+        p.place_id,
+        p.name,
+        p.latitude,
+        p.longitude,
+        NULL::float AS distance_m,
+        TRUE AS is_saved
+    FROM saved_places sp
+    JOIN places p ON p.place_id = sp.place_id
+    WHERE sp.user_id = :user_id
+    ORDER BY p.name ASC
+""")
+
 
 def list_saved(
-    db: Session, *, user_id: uuid.UUID, lat: float, lng: float
+    db: Session, *, user_id: uuid.UUID, lat: float | None, lng: float | None
 ) -> list[dict]:
-    rows = (
-        db.execute(_LIST_SQL, {"user_id": user_id, "lat": lat, "lng": lng})
-        .mappings()
-        .all()
-    )
+    if lat is None or lng is None:
+        rows = (
+            db.execute(_LIST_NO_DISTANCE_SQL, {"user_id": user_id})
+            .mappings()
+            .all()
+        )
+    else:
+        rows = (
+            db.execute(
+                _LIST_WITH_DISTANCE_SQL,
+                {"user_id": user_id, "lat": lat, "lng": lng},
+            )
+            .mappings()
+            .all()
+        )
     return [dict(r) for r in rows]
 
 
