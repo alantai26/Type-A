@@ -10,7 +10,7 @@ class PlaceOut(BaseModel):
     name: str
     latitude: float
     longitude: float
-    distance_m: float
+    distance_m: float | None = None
     is_saved: bool
 
 

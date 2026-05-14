@@ -98,8 +98,8 @@ Implemented:
 - GET    /health                       → server status (no auth)
 - GET    /me                           → current user (TYP-17, requires Bearer JWT)
 - PATCH  /me                           → update display_name (TYP-17)
-- GET    /places                       → fuzzy + radius search (TYP-18: required `q`, `lat`, `lng`; optional `radius_m` default 50000, max 100000). Returns `PlaceOut[]` with `distance_m` and `is_saved` per result.
-- GET    /saved_places                 → user's bookmarks hydrated to places + distance from supplied `lat`/`lng` (TYP-18)
+- GET    /places                       → fuzzy + radius search. Required `lat`, `lng`; optional `q` (when omitted, nearby-only mode — returns all places in radius ordered by distance, TYP-47); optional `radius_m` default 50000 max 100000. Returns `PlaceOut[]` with `distance_m` and `is_saved` per result. `distance_m` is nullable on the schema (always populated when lat/lng supplied; null is reserved for the saved-places-without-caller-location case below).
+- GET    /saved_places                 → user's bookmarks hydrated to places. Optional `lat`/`lng` (TYP-47): when supplied, returns `distance_m` per row and orders by distance ASC; when omitted, `distance_m` is null and rows are ordered alphabetically by name (Profile-tab use case — avoids forcing CoreLocation permission just to load a bookmark list).
 - POST   /saved_places/{place_id}      → bookmark a place; idempotent via `ON CONFLICT DO NOTHING`; 404 if place missing (TYP-18) → 204
 - DELETE /saved_places/{place_id}      → remove bookmark; idempotent (TYP-18) → 204
 - POST/GET/PATCH/DELETE  /events, /events/{id}                          (TYP-19)

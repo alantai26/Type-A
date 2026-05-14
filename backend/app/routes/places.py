@@ -16,7 +16,7 @@ router = APIRouter(tags=["places"])
 
 @router.get("/places", response_model=list[PlaceOut])
 def search_places(
-    q: str = Query(..., min_length=1),
+    q: str | None = Query(default=None, min_length=1),
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
     radius_m: float = Query(50000, gt=0, le=100000),
@@ -35,8 +35,8 @@ def search_places(
 
 @router.get("/saved_places", response_model=list[PlaceOut])
 def list_saved_places(
-    lat: float = Query(..., ge=-90, le=90),
-    lng: float = Query(..., ge=-180, le=180),
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lng: float | None = Query(default=None, ge=-180, le=180),
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> list[dict]:
