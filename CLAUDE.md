@@ -46,7 +46,7 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
 - `backend/app/main.py` — FastAPI entry point, CORS middleware, `/health` and `/` routes, registers routers
 - `backend/app/auth.py` — `require_auth` dependency: validates Supabase JWT (ES256, JWKS-cached), provisions a `users` row on first sight (uses JWT `sub` as `user_id`)
 - `backend/app/db.py` — SQLAlchemy engine + `get_db` session dependency
-- `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`)
+- `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`). One file per resource — note that `/saved_places` endpoints live in `routes/places.py` (no separate route file), though `repositories/saved_places.py` is its own module.
 - `backend/app/services/` — business logic that orchestrates multiple repository calls or enforces cross-entity invariants (`events`, `outings`, `friendships`, `feed`, `event_invitations`, `outing_invitations`). Trivial single-call logic still lives directly in repositories.
 - `backend/app/repositories/` — data access layer
 - `backend/app/models/` — SQLAlchemy ORM models only
@@ -173,9 +173,39 @@ Six hooks configured in `.claude/settings.json` (project root):
 ## Notes for Future Claude
 
 - The names `events` and `outings` were chosen deliberately (not the scoping doc's original `plans` and `nights`). See the Domain Vocabulary section above before renaming.
-- TYP-8 (schema), TYP-16 (model tweaks + migration), TYP-17 (auth foundation: `/me` endpoints, Supabase JWT validation), TYP-18 (places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes), TYP-19 (events + outings + Plan tab: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades), TYP-21 (ratings: 4 endpoints — `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed), TYP-22 (friendships: 6 endpoints — Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically), and TYP-20 (invitations: 6 endpoints — bulk invite by friend user_ids with creator-only edit-gate + friendship-gate, idempotent `ON CONFLICT DO NOTHING`, `/me`-scoped RSVP path, embedded event/outing on incoming list, creator auto-RSVP retrofit on TYP-19 create routes; `created_at` column added to both invitation tables in migration `3067d8b0ab6b`; ICS punted to iOS EventKit, magic links punted to a separate sub-ticket) are complete. Check `backend/app/models/` and `backend/alembic/versions/` for current state.
 - Friendship status values follow the same `pending | accepted | rejected` CHECK pattern as RSVP fields, but `'rejected'` is currently unused at the application layer (reject hard-deletes; the constraint accepts the value if a future change wants soft-reject without a migration).
-- iOS tickets complete: TYP-25 (project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models), TYP-26 (login + signup via Supabase, `AuthStore` `@Observable` + auth gating in `RootView`), TYP-10 (4-tab SwiftUI shell with placeholder views), TYP-38 (Profile tab shell: empty state + CTA tab switching, merged 2026-05-11), TYP-58 (Profile Places list populated with tier-coloured score pills + pull-to-refresh; backend `GET /me/place_ratings` now hydrates `place_name` + `category` via JOIN to `places`; dev seed script at `backend/scripts/seed_dev_data.py`; merged 2026-05-12 in PR #22). `ios/TypeA/Local.xcconfig` is gitignored (each dev fills in their own copy) so the LAN IP used for local-simulator dev can't leak into the commit. The full Profile work was split into TYP-58 through TYP-62 — TYP-59 (Outings list) is the natural next ticket; TYP-60 (Saved) blocked on TYP-47; TYP-62 (friends count) blocked on TYP-43; TYP-61 (settings sheet) standalone.
 - App-wide tab selection lives in `ios/TypeA/TypeA/TabSelectionStore.swift` — an `@Observable` class injected at the app root the same way as `AuthStore`. Any view can read `@Environment(TabSelectionStore.self)` and write `tabSelection.current = .search` to switch tabs. `MainTabView` binds it into `TabView(selection:)` for two-way sync with the bottom tab bar. Pattern documented in `docs/TAB_SWITCHING_UNDERSTANDING.md` (with a stadium scoreboard analogy for the learner). Reuse for any cross-view shared state (FriendsStore, FeedStore, etc.) before reaching for `@AppStorage` or singletons.
+- `ios/TypeA/Local.xcconfig` is gitignored (each dev fills in their own copy) so the LAN IP used for local-simulator dev can't leak into the commit.
 - The user is learning. When asked to build something, prefer Socratic teaching over copy-paste solutions.
 - Always read files before re-explaining edits — Alan often makes changes in his IDE before asking follow-up questions.
+
+### Completed tickets
+
+Backend:
+- **TYP-8** — initial schema
+- **TYP-16** — model tweaks + migration
+- **TYP-17** — auth foundation: `/me` endpoints, Supabase JWT validation
+- **TYP-18** — places discovery + bookmarking: `/places` search, `/saved_places` CRUD, earthdistance + pg_trgm indexes
+- **TYP-19** — events + outings: 16 endpoints across atomic events and multi-stop outings, full lifecycle with confirm/unconfirm/cancel cascades
+- **TYP-20** — invitations: 6 endpoints, bulk invite by friend user_ids with creator-only edit-gate + friendship-gate, idempotent `ON CONFLICT DO NOTHING`, `/me`-scoped RSVP path, embedded event/outing on incoming list, creator auto-RSVP retrofit on TYP-19 create routes; `created_at` column added to both invitation tables in migration `3067d8b0ab6b`; ICS punted to iOS EventKit, magic links punted to a separate sub-ticket
+- **TYP-21** — ratings: 4 endpoints, `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed
+- **TYP-22** — friendships: 6 endpoints, Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically
+- **TYP-47** — optional `q` on `/places`, optional `lat`/`lng` on `/saved_places` (merged 2026-05-14 PR #25)
+- **TYP-63** — README cleanup (merged 2026-05-12 PR #23)
+
+iOS:
+- **TYP-25** — project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models
+- **TYP-26** — login + signup via Supabase, `AuthStore` `@Observable` + auth gating in `RootView`
+- **TYP-10** — 4-tab SwiftUI shell with placeholder views
+- **TYP-38** — Profile tab shell: empty state + CTA tab switching (merged 2026-05-11)
+- **TYP-58** — Profile Places list (merged 2026-05-12 PR #22)
+- **TYP-59** — Profile Outings list (merged 2026-05-13 PR #24)
+- **TYP-60** — Profile Saved list (merged 2026-05-15 PR #26 — see `docs/TYP_60_HANDOFF.md`)
+
+Check `backend/app/models/` and `backend/alembic/versions/` for current schema state.
+
+### Queued / blocked
+
+- **TYP-61** (Profile settings sheet) — standalone, next up
+- **TYP-62** (real friends count on Profile) — blocked on TYP-43
+- **TYP-64** (extract `ScorePill` + `CategoryIcon` into reusable components) — cleanup, queued for when a third consumer (Feed or Search tab) needs them

@@ -46,11 +46,7 @@ def list_saved(
     db: Session, *, user_id: uuid.UUID, lat: float | None, lng: float | None
 ) -> list[dict]:
     if lat is None or lng is None:
-        rows = (
-            db.execute(_LIST_NO_DISTANCE_SQL, {"user_id": user_id})
-            .mappings()
-            .all()
-        )
+        rows = db.execute(_LIST_NO_DISTANCE_SQL, {"user_id": user_id}).mappings().all()
     else:
         rows = (
             db.execute(

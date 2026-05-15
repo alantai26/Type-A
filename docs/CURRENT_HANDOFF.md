@@ -6,6 +6,45 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-05-15 — TYP-60 merged: Profile Saved list populated
+
+- **Merged in PR #26** (commit `cb37a0a`). Branch `typ-60-ios-profile-saved-list-populated`.
+- **iOS**: `ProfileView`'s Saved tab populated with the same tri-state pattern as Places + Outings. Row layout: 32pt category-themed icon + name + category subtext + decorative filled bookmark icon rightmost. **No rank** (it's not a ranked list), **no score pill** (saved ≠ rated).
+- **Three loaders fire in parallel** in `.task` + `.refreshable` via three `async let`s: `loadPlaceRatings()`, `loadOutings()`, `loadSavedPlaces()`. Pattern: `_ = await (p, o, s)`.
+- **Backend hydration**: `PlaceOut` schema gains `category: str` to power the Saved row's subtext. Both `/places` SQLs (`_SEARCH_SQL`, `_NEARBY_SQL`) and both `/saved_places` SQLs (`_LIST_WITH_DISTANCE_SQL`, `_LIST_NO_DISTANCE_SQL`) now SELECT `p.category`. Forward-useful for Search results too. No migration.
+- **iOS `Models.swift`**: `Place` gains `category: String`; `distanceM` is now `Double?` (consumes TYP-47's nullable `distance_m`).
+- **Seed script** (`backend/scripts/seed_dev_data.py`): adds 2 bookmarked places (`Trillium Brewing`, `Tatte Bakery`), idempotent on `(user_id, place_id)`.
+- **Sort order**: alphabetical when no caller location. `saved_places` has no `created_at` column → save-recency sort would need a migration; deferred. Reasonable for v1.
+- **Out of scope**: tap-to-unsave from Profile (separate ticket if needed — currently lives on Search and Place detail), settings sheet (TYP-61), real friends count (TYP-62 blocked on TYP-43).
+- See `docs/TYP_60_HANDOFF.md` for the full per-ticket breakdown.
+
+### 2026-05-14 — TYP-47 merged: optional `q` on /places, optional `lat`/`lng` on /saved_places
+
+- **Merged in PR #25** (commit `0f9c205`). Branch `typ-47-verify-get-places-saved_places-work-for-nearby-only-mode`.
+- `GET /places`: `q` is now optional. When omitted, returns all places in `radius_m` ordered by distance ASC. `lat`/`lng` stay required (it's a location search by definition).
+- `GET /saved_places`: `lat`/`lng` are now optional. When omitted, `distance_m` is null and rows are sorted alphabetically. Profile-tab use case: load bookmark list without prompting CoreLocation permission.
+- `PlaceOut.distance_m` is now `Optional[float]`. Backend ready; iOS-side `Place.distanceM = Double?` change followed in TYP-60 (actually consumed there).
+- **Implementation**: two SQL constants per repo (with/without distance/q). Cleaner than conditional WHERE — readable, planner optimizes each branch.
+- **Unblocked**: TYP-60 (Profile Saved list — shipped same week) and Search-tab nearby-only empty state (TYP-29-ish, future).
+- **Design choice**: alphabetical sort when no lat/lng. Save-recency sort deferred (no `saved_places.created_at` column; would need migration).
+
+### 2026-05-13 — TYP-59 merged: Profile Outings list populated
+
+- **Merged in PR #24** (commit `d863ed0`). Branch `typ-59-ios-profile-outings-list-populated`.
+- iOS `ProfileView` Outings tab populated. Parallel to TYP-58's Places work — same tri-state rendering, same `scorePill` reuse, same orange-tint 32pt icon block (calendar icon for outings).
+- **Client-side filter**: `outing.status == "completed" && outing.finalRating != nil`. **Sort**: by `finalRating DESC` (matches Places list; originally specced as `completedAt DESC`, switched mid-session for consistency).
+- Row contents: rank + calendar icon + title + "N stops · weekday, month day" meta + tier-coloured score pill (reuses TYP-58's 6.7/3.4 thresholds).
+- `loadOutings()` calls `GET /me/outings` (TYP-19, already shipped). Two loaders fire in parallel via `async let`; TYP-60 added a third (saved places).
+- Seed script: 3 sample outings inserted (Friday Brewery Night 8.7, Saturday Day Out 9.2, Coffee & Drinks 7.5), idempotent on `(creator_id, title)`. Each has 2 stops linking to seeded places via `events` rows with `weight=0.5`.
+- **Attendee names ("with John, Mike") deferred** — needs backend hydration of `event_invitations` or `outing_invitations`. Separate future ticket.
+- **Cleanup ticket TYP-64 filed**: extract `ScorePill` + `CategoryIcon` once a 3rd consumer needs them (Feed or Search). Rule of three.
+
+### 2026-05-12 (later) — TYP-63 merged: README cleanup
+
+- **Merged in PR #23** (commit `9252178`). Branch `typ-63-readme-cleanup-align-with-current-stack-workflow`.
+- Root `README.md` had drifted: claimed Fly.io/Railway deploy (actually Render), "Supabase or Clerk" auth (locked to Supabase since TYP-26), `.ics via Resend/SendGrid` as live stack item (v1.1 visual stub), branch strategy out of sync with actual `main`-targeting workflow.
+- Cleanup: tech stack updated to reflect Render + Supabase only; getting-started gained an iOS section; branch strategy rewritten to match reality (PRs → `main`); "Two ML Systems" reworded as forward-looking (stubs in v1); pointers to `CLAUDE.md` and `docs/CURRENT_HANDOFF.md` added.
+
 ### 2026-05-12 — TYP-58 merged: Profile Places list populated
 
 - **Merged in PR #22** (commit `2b32b74`). Branch `typ-58-ios-profile-places-list-populated`.

@@ -12,7 +12,25 @@ final class APIClient {
     private let session = URLSession.shared
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        d.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            let normalized = raw.replacingOccurrences(
+                of: #"\.(\d{3})\d+"#,
+                with: ".$1",
+                options: .regularExpression
+            )
+            let withFrac = ISO8601DateFormatter()
+            withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = withFrac.date(from: normalized) { return date }
+            let plain = ISO8601DateFormatter()
+            plain.formatOptions = [.withInternetDateTime]
+            if let date = plain.date(from: normalized) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date: \(raw)"
+            )
+        }
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
