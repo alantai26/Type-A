@@ -21,4 +21,4 @@ def patch_me(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> User:
-    return update_user(db, current_user, display_name=body.display_name)
+    return update_user(db, current_user, display_name=body.display_name, bio=body.bio)

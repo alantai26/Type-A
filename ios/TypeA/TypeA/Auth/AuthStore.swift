@@ -39,7 +39,7 @@ final class AuthStore {
 
     func signUp(email: String, password: String, displayName: String) async throws {
         try await AuthService.shared.signUp(email: email, password: password)
-        let body = UserUpdate(displayName: displayName)
+        let body = UserUpdate(displayName: displayName, bio: nil)
         let updated: User = try await APIClient.shared.request("/me", method: "PATCH", body: body)
         currentUser = updated
     }

@@ -8,11 +8,13 @@ struct User: Decodable {
     let userId: UUID
     let email: String
     let displayName: String
+    let bio: String?
     let createdAt: Date
 }
 
 struct UserUpdate: Encodable {
     let displayName: String?
+    let bio: String?
 }
 
 struct Place: Decodable {
