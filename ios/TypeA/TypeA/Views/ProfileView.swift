@@ -24,7 +24,6 @@ struct ProfileView: View {
     @Environment(AuthStore.self) private var authStore
     @Environment(TabSelectionStore.self) private var tabSelection
     @State private var selectedTab: ProfileTab = .places
-    @State private var isSigningOut = false
     @State private var placeRatings: [PlaceRating]?
     @State private var outings: [Outing]?
     @State private var savedPlaces: [Place]?
@@ -61,8 +60,8 @@ struct ProfileView: View {
     private var headerRow: some View {
         HStack {
             Spacer()
-            Button {
-                // settings sheet — follow-up ticket
+            NavigationLink {
+                SettingsView()
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 18, weight: .medium))
@@ -82,7 +81,7 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(authStore.currentUser?.displayName ?? " ")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                Text("Tap settings to add a bio")
+                Text(authStore.currentUser?.bio ?? "Tap settings to add bio")
                     .font(.callout)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -486,33 +485,5 @@ struct ProfileView: View {
                 targetTab: .search
             )
         }
-    }
-
-    private var logoutButton: some View {
-        Button {
-            Task { await signOut() }
-        } label: {
-            if isSigningOut {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            } else {
-                Text("Logout")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.vertical, 14)
-        .foregroundStyle(.red)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.red.opacity(0.3), lineWidth: 1)
-        )
-        .disabled(isSigningOut)
-    }
-
-    func signOut() async {
-        isSigningOut = true
-        defer { isSigningOut = false }
-        try? await authStore.signOut()
     }
 }

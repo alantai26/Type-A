@@ -15,9 +15,11 @@ struct MainTabView: View {
             SearchView()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
                 .tag(AppTab.search)
-            ProfileView()
-                .tabItem { Label("Profile", systemImage: "person.circle") }
-                .tag(AppTab.profile)
+            NavigationStack{
+                ProfileView()
+            }
+            .tabItem { Label("Profile", systemImage: "person.circle") }
+            .tag(AppTab.profile)
         }
     }
 }
