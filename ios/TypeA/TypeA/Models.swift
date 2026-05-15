@@ -18,9 +18,10 @@ struct UserUpdate: Encodable {
 struct Place: Decodable {
     let placeId: UUID
     let name: String
+    let category: String
     let latitude: Double
     let longitude: Double
-    let distanceM: Double
+    let distanceM: Double?
     let isSaved: Bool
 }
 

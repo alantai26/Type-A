@@ -8,6 +8,7 @@ class PlaceOut(BaseModel):
 
     place_id: uuid.UUID
     name: str
+    category: str
     latitude: float
     longitude: float
     distance_m: float | None = None
