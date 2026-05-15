@@ -11,6 +11,7 @@ _LIST_WITH_DISTANCE_SQL = text("""
     SELECT
         p.place_id,
         p.name,
+        p.category,
         p.latitude,
         p.longitude,
         earth_distance(
@@ -29,6 +30,7 @@ _LIST_NO_DISTANCE_SQL = text("""
     SELECT
         p.place_id,
         p.name,
+        p.category,
         p.latitude,
         p.longitude,
         NULL::float AS distance_m,

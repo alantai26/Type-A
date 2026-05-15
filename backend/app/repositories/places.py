@@ -10,6 +10,7 @@ _SEARCH_SQL = text("""
     SELECT
         p.place_id,
         p.name,
+        p.category,
         p.latitude,
         p.longitude,
         earth_distance(
@@ -37,6 +38,7 @@ _NEARBY_SQL = text("""
     SELECT
         p.place_id,
         p.name,
+        p.category,
         p.latitude,
         p.longitude,
         earth_distance(

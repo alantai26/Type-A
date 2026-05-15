@@ -27,6 +27,7 @@ struct ProfileView: View {
     @State private var isSigningOut = false
     @State private var placeRatings: [PlaceRating]?
     @State private var outings: [Outing]?
+    @State private var savedPlaces: [Place]?
 
     var body: some View {
         ScrollView {
@@ -46,12 +47,14 @@ struct ProfileView: View {
         .task {
             async let p: () = loadPlaceRatings()
             async let o: () = loadOutings()
-            _ = await (p, o)
+            async let s: () = loadSavedPlaces()
+            _ = await (p, o, s)
         }
         .refreshable {
             async let p: () = loadPlaceRatings()
             async let o: () = loadOutings()
-            _ = await (p, o)
+            async let s: () = loadSavedPlaces()
+            _ = await (p, o, s)
         }
     }
 
@@ -192,8 +195,56 @@ struct ProfileView: View {
                     .padding(.vertical, 60)
             }
         case .saved:
-            emptyStateCard
+            if let savedPlaces {
+                if savedPlaces.isEmpty {
+                    emptyStateCard
+                } else {
+                    savedPlacesList(savedPlaces)
+                }
+            } else {
+                ProgressView()
+                    .padding(.vertical, 60)
+            }
         }
+    }
+
+    private func savedPlacesList(_ places: [Place]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(places.enumerated()), id: \.element.placeId) { idx, place in
+                savedPlaceRow(place: place)
+                if idx < places.count - 1 {
+                    Divider()
+                }
+            }
+        }
+    }
+
+    private func savedPlaceRow(place: Place) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor.opacity(0.15))
+                Image(systemName: iconName(for: place.category))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.name)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(place.category)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(.vertical, 14)
     }
 
     private func placesList(_ ratings: [PlaceRating]) -> some View {
@@ -321,7 +372,7 @@ struct ProfileView: View {
         switch tab {
         case .places: return placeRatings?.count ?? 0
         case .outings: return outings?.count ?? 0 
-        case .saved: return 0
+        case .saved: return savedPlaces?.count ?? 0
         }
     }
 
@@ -357,6 +408,16 @@ struct ProfileView: View {
         } catch {
             print("ProfileView: failed to load /me/outings — \(error)")
             outings = []
+        }
+    }
+
+    private func loadSavedPlaces() async {
+        do {
+            let places: [Place] = try await APIClient.shared.request("/saved_places")
+            savedPlaces = places
+        } catch {
+            print("ProfileView: failed to load /saved_places — \(error)")
+            savedPlaces = []
         }
     }
 

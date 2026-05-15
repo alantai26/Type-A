@@ -32,6 +32,7 @@ from app.models.events import Event  # noqa: E402
 from app.models.outings import Outing  # noqa: E402
 from app.models.place_ratings import PlaceRating  # noqa: E402
 from app.models.places import Place  # noqa: E402
+from app.models.saved_places import SavedPlace  # noqa: E402
 from app.models.users import User  # noqa: E402
 
 PLACES_AND_RATINGS = [
@@ -49,6 +50,9 @@ OUTINGS = [
     ("Saturday Day Out", 10, 9.2, ["Top Golf", "Bar Lyon"]),
     ("Coffee & Drinks", 21, 7.5, ["Tatte Bakery", "Bar Lyon"]),
 ]
+
+# Places bookmarked by the user — populates TYP-60's Profile Saved list.
+SAVES = ["Trillium Brewing", "Tatte Bakery"]
 
 
 def main() -> None:
@@ -139,6 +143,23 @@ def main() -> None:
             db.add(event)
 
         print(f"  + outing: {title} = {final_rating} ({len(place_names)} stops)")
+
+    for name in SAVES:
+        place = db.scalar(select(Place).where(Place.name == name))
+        if place is None:
+            print(f"  ! missing place for save: {name}")
+            continue
+        existing_save = db.scalar(
+            select(SavedPlace).where(
+                SavedPlace.user_id == user.user_id,
+                SavedPlace.place_id == place.place_id,
+            )
+        )
+        if existing_save is not None:
+            print(f"  = save exists: {name}")
+            continue
+        db.add(SavedPlace(user_id=user.user_id, place_id=place.place_id))
+        print(f"  + save: {name}")
 
     db.commit()
     print("Done.")
