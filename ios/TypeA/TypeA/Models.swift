@@ -127,3 +127,42 @@ struct PlaceRating: Decodable {
     let placeName: String
     let category: String
 }
+
+struct FriendRating: Decodable {
+    let userId: UUID
+    let displayName: String
+    let rating: Double
+    let createdAt: Date
+}
+
+struct FriendSave: Decodable {
+    let userId: UUID
+    let displayName: String
+    let createdAt: Date
+}
+
+enum FriendsActivityItem: Decodable {
+    case rating(FriendRating)
+    case save(FriendSave)
+
+    private enum DiscriminatorKey: String, CodingKey {
+        case type
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DiscriminatorKey.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "rating":
+            self = .rating(try FriendRating(from: decoder))
+        case "save":
+            self = .save(try FriendSave(from: decoder))
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type,
+                in: container,
+                debugDescription: "Unknown friends activity item type: \(type)"
+            )
+        }
+    }
+}

@@ -47,7 +47,7 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
 - `backend/app/auth.py` — `require_auth` dependency: validates Supabase JWT (ES256, JWKS-cached), provisions a `users` row on first sight (uses JWT `sub` as `user_id`)
 - `backend/app/db.py` — SQLAlchemy engine + `get_db` session dependency
 - `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`). One file per resource — note that `/saved_places` endpoints live in `routes/places.py` (no separate route file), though `repositories/saved_places.py` is its own module.
-- `backend/app/services/` — business logic that orchestrates multiple repository calls or enforces cross-entity invariants (`events`, `outings`, `friendships`, `feed`, `event_invitations`, `outing_invitations`). Trivial single-call logic still lives directly in repositories.
+- `backend/app/services/` — business logic that orchestrates multiple repository calls or enforces cross-entity invariants (`events`, `outings`, `friendships`, `feed`, `event_invitations`, `outing_invitations`, `places`). Trivial single-call logic still lives directly in repositories.
 - `backend/app/repositories/` — data access layer
 - `backend/app/models/` — SQLAlchemy ORM models only
 - `backend/app/schemas/` — Pydantic request/response schemas (one file per resource: `users.py`, `places.py`, etc.)
@@ -128,6 +128,7 @@ Implemented:
 - PATCH  /outings/{id}/invitations/me               → outing RSVP (TYP-20)
 - GET    /me/outing_invitations                     → invitee's incoming outings with embedded `OutingOut` (which itself embeds events) (TYP-20)
 - TYP-19 retrofit: event/outing creation now auto-inserts the creator into the relevant invitations table with `rsvp_status='accepted'` (idempotent via `ON CONFLICT DO NOTHING`)
+- GET    /places/{place_id}/friends_activity → caller's accepted friends' rating + save activity on this place; discriminated `FriendRatingOut | FriendSaveOut` items (latest rating per friend via `DISTINCT ON`, saves PK-deduped); one row per action so a friend who rated AND saved produces two rows; sorted by `created_at DESC`; 404 if place missing (TYP-65)
 - GET    /places/{place_id}/predict     → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; 404 if place missing. To be replaced by ridge regression once iOS is shipping real ratings.
 - GET    /outings/{outing_id}/predict   → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; no ownership check (any user can see their predicted score for any outing); 404 if outing missing. To be replaced by attribution model later.
 

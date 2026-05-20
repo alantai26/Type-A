@@ -10,6 +10,13 @@ from app.models.places import Place
 from app.models.users import User
 from app.repositories import places as places_repo
 from app.repositories import saved_places as saved_repo
+from app.schemas.places import (
+    FriendRatingOut,
+    FriendSaveOut,
+    PlaceOut,
+    PlacePredictionOut,
+)
+from app.services import places as places_service
 
 router = APIRouter(tags=["places"])
 
