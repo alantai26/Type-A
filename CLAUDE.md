@@ -190,6 +190,7 @@ Backend:
 - **TYP-20** — invitations: 6 endpoints, bulk invite by friend user_ids with creator-only edit-gate + friendship-gate, idempotent `ON CONFLICT DO NOTHING`, `/me`-scoped RSVP path, embedded event/outing on incoming list, creator auto-RSVP retrofit on TYP-19 create routes; `created_at` column added to both invitation tables in migration `3067d8b0ab6b`; ICS punted to iOS EventKit, magic links punted to a separate sub-ticket
 - **TYP-21** — ratings: 4 endpoints, `place_ratings` append-only with DISTINCT ON dedupe, `outings/{id}/rate` with per-event weights cascading to completed
 - **TYP-22** — friendships: 6 endpoints, Option A schema = 1 row pending / 2 rows accepted, hard-delete reject, auto-accept on mutual pending, idempotent dup POST, OR-filter unfriend deletes both rows atomically
+- **TYP-41** — `bio TEXT NULL` on users, `UserOut`/`UserUpdate` exposes the field, server-side 160-char cap via `Field(max_length=160)` (merged 2026-05-15 PR #27, bundled with TYP-61 — see `docs/TYP_61_HANDOFF.md`)
 - **TYP-47** — optional `q` on `/places`, optional `lat`/`lng` on `/saved_places` (merged 2026-05-14 PR #25)
 - **TYP-63** — README cleanup (merged 2026-05-12 PR #23)
 
@@ -201,11 +202,12 @@ iOS:
 - **TYP-58** — Profile Places list (merged 2026-05-12 PR #22)
 - **TYP-59** — Profile Outings list (merged 2026-05-13 PR #24)
 - **TYP-60** — Profile Saved list (merged 2026-05-15 PR #26 — see `docs/TYP_60_HANDOFF.md`)
+- **TYP-61** — Profile settings screen (push-navigation from gear icon, row-style edit pattern with single-field edit sheets, two-stage save flow, logout moved here from Profile; drive-by `APIClient` fix for Postgres microsecond timestamps that broke strict `.iso8601` parsing) — merged 2026-05-15 PR #27, bundled with TYP-41 — see `docs/TYP_61_HANDOFF.md`
 
 Check `backend/app/models/` and `backend/alembic/versions/` for current schema state.
 
 ### Queued / blocked
 
-- **TYP-61** (Profile settings sheet) — standalone, next up
+- **TYP-49** (iOS Place detail screen) — next up; tapping a place row anywhere (Search/Profile/Feed) lands here
 - **TYP-62** (real friends count on Profile) — blocked on TYP-43
 - **TYP-64** (extract `ScorePill` + `CategoryIcon` into reusable components) — cleanup, queued for when a third consumer (Feed or Search tab) needs them
