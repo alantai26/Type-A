@@ -6,6 +6,21 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-05-15 (later) — TYP-61 + TYP-41 merged: Profile settings screen + bio field
+
+- **Merged in PR #27** (commit `33fb8de`). Branch was `typ-61-ios-profile-settings-sheet`. Two Linear tickets in one PR: TYP-41 (backend bio field) + TYP-61 (iOS settings screen). Bundled because the iOS work is meaningless without the column.
+- **Backend (TYP-41)**: Migration `b416388ba296` adds `bio TEXT NULL` to `users`. `UserOut` exposes it; `UserUpdate` enforces 160-char cap server-side via `Field(default=None, max_length=160)`. Repo + route updated. `Text` column (unbounded) — the 160-char cap is a presentation/API concern, not a storage one.
+- **iOS (TYP-61) — new `SettingsView.swift`** pushed from `ProfileView`'s gear via a `NavigationLink`. `MainTabView:18` now wraps `ProfileView()` in `NavigationStack { ... }` — only the Profile tab gets one; other tabs unchanged.
+- **Deliberate divergence from the ticket**: settings is a **navigation push, not a modal sheet**. Settings is hierarchical (Instagram/X/Threads convention), and push keeps the tab bar visible. Ticket text said "modally"; that's an implementation hint, not a UX contract.
+- **Edit pattern is row-style, not inline TextFields**: bold label + grayed value + pencil icon. Tap → `EditFieldSheet` (sheet from within the pushed view) with a focused `TextField` and a Cancel/Done toolbar. Bio variant has 160-char clamp + `count / 160` counter. Done writes draft back to parent state; the top-level Save button in `SettingsView`'s toolbar fires the single `PATCH /me` for all changes.
+- **Save UX gates**: Save button disabled until something actually differs from `authStore.currentUser`. Empty display name → inline validation error, no PATCH. After success, `authStore.currentUser = updated` directly — Profile's identity block re-renders without a re-fetch.
+- **Bio clearing semantics**: repo's `if bio is not None: user.bio = bio` means clients can't send NULL to clear bio. iOS always sends `bio: trimmed` (even empty string), so wipe-the-bio in UI = empty string in storage. UI treats null and empty identically.
+- **Logout moved into `SettingsView`** as a destructive-role button. The temporary red Logout button at the bottom of `ProfileView` is gone, along with the orphan `isSigningOut` state + `signOut()` method (well, two leftovers still untouched — cosmetic only, see TYP_61_HANDOFF).
+- **Section placeholders for Notifications / Privacy / Blocked users** ship as `.disabled(true)` "Coming soon" rows — ticket asked for the dividers so v1.x can fill them in without re-arranging.
+- **Drive-by APIClient date fix**: latent bug surfaced this session. Postgres emits microsecond-precision timestamps (`.523774`); Swift's strict `.iso8601` strategy rejects fractional seconds entirely. Replaced with a `.custom` strategy that normalizes to milliseconds then parses with `.withFractionalSeconds`, falling back to plain ISO8601. Applies to every decoded response, not just `/me`.
+- **Identity block updated**: `currentUser?.bio` rendered when non-nil; italic "Tap settings to add bio" placeholder when nil.
+- See `docs/TYP_61_HANDOFF.md` for the full per-ticket breakdown.
+
 ### 2026-05-15 — TYP-60 merged: Profile Saved list populated
 
 - **Merged in PR #26** (commit `cb37a0a`). Branch `typ-60-ios-profile-saved-list-populated`.

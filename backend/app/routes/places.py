@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.db import get_db
-from app.schemas.places import PlaceOut, PlacePredictionOut
 from app.models.places import Place
 from app.models.users import User
 from app.repositories import places as places_repo
@@ -79,3 +78,19 @@ def predict_place(
     if db.get(Place, place_id) is None:
         raise HTTPException(status_code=404, detail="Place not found")
     return PlacePredictionOut(score=7.5, model_version="stub-v0")
+
+
+@router.get(
+    "/places/{place_id}/friends_activity",
+    response_model=list[FriendRatingOut | FriendSaveOut],
+)
+def get_friends_activity(
+    place_id: uuid.UUID,
+    current_user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> list[FriendRatingOut | FriendSaveOut]:
+    if db.get(Place, place_id) is None:
+        raise HTTPException(status_code=404, detail="Place not found")
+    return places_service.get_friends_activity_for_place(
+        db, me=current_user.user_id, place_id=place_id
+    )

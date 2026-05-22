@@ -52,9 +52,22 @@ def list_by_user(db: Session, user_id: uuid.UUID) -> list:
 
 def get_latest_for_user_place(
     db: Session, user_id: uuid.UUID, place_id: uuid.UUID
-) -> PlaceRating | None:
-    return db.scalars(
-        select(PlaceRating)
-        .where(PlaceRating.user_id == user_id, PlaceRating.place_id == place_id)
+):
+    return (
+        db.query(
+            PlaceRating.rating_id,
+            PlaceRating.user_id,
+            PlaceRating.place_id,
+            PlaceRating.rating,
+            PlaceRating.created_at,
+            Place.name.label("place_name"),
+            Place.category,
+        )
+        .join(Place, PlaceRating.place_id == Place.place_id)
+        .filter(
+            PlaceRating.user_id == user_id,
+            PlaceRating.place_id == place_id,
+        )
         .order_by(PlaceRating.created_at.desc())
-    ).first()
+        .first()
+    )

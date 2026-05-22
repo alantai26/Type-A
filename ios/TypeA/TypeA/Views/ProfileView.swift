@@ -210,7 +210,12 @@ struct ProfileView: View {
     private func savedPlacesList(_ places: [Place]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(places.enumerated()), id: \.element.placeId) { idx, place in
-                savedPlaceRow(place: place)
+                NavigationLink {
+                    PlaceDetailView(place: place)
+                } label: {
+                    savedPlaceRow(place: place)
+                }
+                .buttonStyle(.plain)
                 if idx < places.count - 1 {
                     Divider()
                 }
@@ -249,7 +254,20 @@ struct ProfileView: View {
     private func placesList(_ ratings: [PlaceRating]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(ratings.enumerated()), id: \.element.ratingId) { idx, rating in
-                placeRatingRow(rank: idx + 1, rating: rating)
+                NavigationLink {
+                    PlaceDetailView(place: Place(
+                        placeId: rating.placeId,
+                        name: rating.placeName,
+                        category: rating.category,
+                        latitude: 0,
+                        longitude: 0,
+                        distanceM: nil,
+                        isSaved: false
+                    ))
+                } label: {
+                    placeRatingRow(rank: idx + 1, rating: rating)
+                }
+                .buttonStyle(.plain)
                 if idx < ratings.count - 1 {
                     Divider()
                 }

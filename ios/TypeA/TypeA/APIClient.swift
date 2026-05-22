@@ -55,6 +55,10 @@ final class APIClient {
         try await send(path: path, method: method, body: body)
     }
 
+    func requestVoid(_ path: String, method: String) async throws {
+        try await sendVoid(path: path, method: method, body: Optional<EmptyBody>.none)
+    }
+
     private func send<T: Decodable, Body: Encodable>(
         path: String,
         method: String,
@@ -80,6 +84,32 @@ final class APIClient {
             )
         }
         return try decoder.decode(T.self, from: data)
+    }
+
+    private func sendVoid<Body: Encodable>(
+        path: String,
+        method: String,
+        body: Body?
+    ) async throws {
+        var req = URLRequest(url: baseURL.appendingPathComponent(path))
+        req.httpMethod = method
+        if let token = await AuthService.shared.currentAccessToken() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try encoder.encode(body)
+        }
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError(statusCode: -1, body: "no response")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError(
+                statusCode: http.statusCode,
+                body: String(data: data, encoding: .utf8) ?? ""
+            )
+        }
     }
 }
 
