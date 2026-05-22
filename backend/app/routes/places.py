@@ -12,7 +12,7 @@ from app.repositories import saved_places as saved_repo
 from app.schemas.places import (
     FriendRatingOut,
     FriendSaveOut,
-    PlaceOut, 
+    PlaceOut,
     PlacePredictionOut,
 )
 from app.services import places as places_service
