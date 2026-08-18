@@ -4,7 +4,7 @@ The social planner that learns what makes a great outing for you, then predicts 
 
 ## What It Is
 
-An iOS app built around **events** — a single place + time + people unit (e.g. "Top Golf, Friday 6pm, with Sarah and Mike"). Events are atomic by default, because that matches how people actually think: "let's go to the movies," not "let's go to the movies, then bowling, then dessert."
+An iOS app built around **events** — a single place + time + people unit (e.g. "Top Golf, Friday 6pm, with Oscar and Jack"). Events are atomic by default, because that matches how people actually think: "let's go to the movies," not "let's go to the movies, then bowling, then dessert."
 
 Some occasions *are* multi-stop — birthdays, special occasions, a real Friday night out, a Saturday brunch + bookstore + coffee. For those, events can be optionally grouped into an **outing**. The outing gets its own composite rating that the ML model decomposes into per-event contributions.
 
