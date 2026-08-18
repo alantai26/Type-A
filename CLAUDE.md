@@ -194,6 +194,8 @@ Backend:
 - **TYP-41** — `bio TEXT NULL` on users, `UserOut`/`UserUpdate` exposes the field, server-side 160-char cap via `Field(max_length=160)` (merged 2026-05-15 PR #27, bundled with TYP-61 — see `docs/TYP_61_HANDOFF.md`)
 - **TYP-47** — optional `q` on `/places`, optional `lat`/`lng` on `/saved_places` (merged 2026-05-14 PR #25)
 - **TYP-63** — README cleanup (merged 2026-05-12 PR #23)
+- **TYP-65** — `/places/{id}/friends_activity`: caller's accepted-friends' rating + save activity on a place; discriminated `FriendRatingOut | FriendSaveOut` mirroring `/me/feed`; ratings deduped to latest-per-friend via `DISTINCT ON (pr.user_id)`, saves PK-deduped; one row per action (not per friend); first endpoint in the places domain to use the service layer (`app/services/places.py`) — merged 2026-05-22 PR #28
+- **TYP-21 drive-by fix** — `/places/{id}/my_rating` was returning a raw `PlaceRating` ORM row missing `place_name` + `category`, causing Pydantic 500. `get_latest_for_user_place` now mirrors `list_by_user`'s join (rode along in PR #29)
 
 iOS:
 - **TYP-25** — project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models
@@ -204,11 +206,13 @@ iOS:
 - **TYP-59** — Profile Outings list (merged 2026-05-13 PR #24)
 - **TYP-60** — Profile Saved list (merged 2026-05-15 PR #26 — see `docs/TYP_60_HANDOFF.md`)
 - **TYP-61** — Profile settings screen (push-navigation from gear icon, row-style edit pattern with single-field edit sheets, two-stage save flow, logout moved here from Profile; drive-by `APIClient` fix for Postgres microsecond timestamps that broke strict `.iso8601` parsing) — merged 2026-05-15 PR #27, bundled with TYP-41 — see `docs/TYP_61_HANDOFF.md`
+- **TYP-49** — PlaceDetailView functional v1: pushed from Profile Places + Saved rows, header (icon/name/category/lat-lng), your-rating section calling `GET /places/{id}/my_rating`, friends activity section calling TYP-65 endpoint, Save/Unsave action (Rate + Plan visible-but-disabled until TYP-29 + Plan tab); new `requestVoid` on APIClient for 204 endpoints; new `FriendRating`/`FriendSave`/`FriendsActivityItem` discriminated enum in `Models.swift`; Places-tab entries construct `Place` with `lat=0, lng=0` sentinel (header line hidden when zero) — merged 2026-05-22 PR #29; visual polish punted to TYP-67
 
 Check `backend/app/models/` and `backend/alembic/versions/` for current schema state.
 
 ### Queued / blocked
 
-- **TYP-49** (iOS Place detail screen) — next up; tapping a place row anywhere (Search/Profile/Feed) lands here
+- **TYP-67** (PlaceDetailView UI/UX polish) — next up; design-system pass on the functional shell from TYP-49
+- **TYP-66** (attendee tracking on outings + events) — new schema (`event_attendees`, `outing_attendees`), `PUT /outings/{id}/attendees` + iOS picker at outing-completion; precursor to "who you went with" on place detail
 - **TYP-62** (real friends count on Profile) — blocked on TYP-43
-- **TYP-64** (extract `ScorePill` + `CategoryIcon` into reusable components) — cleanup, queued for when a third consumer (Feed or Search tab) needs them
+- **TYP-64** (extract `ScorePill` + `CategoryIcon` into reusable components) — cleanup, queued for when a third consumer (Feed or Search tab) needs them; TYP-67 may surface the third consumer

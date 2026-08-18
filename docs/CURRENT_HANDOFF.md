@@ -6,6 +6,17 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-05-22 — TYP-49 + TYP-65 merged (+ TYP-21 drive-by); TYP-66 and TYP-67 filed
+
+- **PR #28 (TYP-65)** merged at `5d2d39a` — backend `/places/{id}/friends_activity` endpoint. **PR #29 (TYP-49)** merged at `de0088d` — iOS PlaceDetailView functional v1 + TYP-21 drive-by fix to `/places/{id}/my_rating` (latent ORM/Pydantic schema mismatch that 500'd before TYP-49 became the first consumer).
+- **TYP-49 shipped functionally, not visually.** Per Alan's new "function first, polish last" preference (memory: `feedback_function_first_ui.md`), the screen renders unstyled `Text` rows and default Buttons in this PR. Visual layer is now TYP-67 — sequel ticket filed for design-system pass.
+- **`requestVoid` added to APIClient** — first iOS consumer of a 204 endpoint (Save/Unsave). Other 204 endpoints (friend requests accept/reject, unfriend, etc.) can use the same helper when they wire up.
+- **Discriminated-union pattern reused.** `FriendsActivityItem` mirrors `FeedItem`'s custom-`Decodable`-with-`type`-discriminator pattern in `Models.swift`. Pattern is now established for any future polymorphic API response.
+- **`Place` lat/lng = 0 sentinel** — when entering PlaceDetailView from a `PlaceRating` (Places tab), we construct a `Place` with `latitude=0, longitude=0` because PlaceRating doesn't carry coordinates. PlaceDetailView's header hides the lat/lng line when both are zero. Future cleanup: add `GET /places/{place_id}` for proper hydration; not filed yet.
+- **`docs/TYP_61_HANDOFF.md` finally landed.** Was uncommitted since PR #27 closed; rode along in PR #29 with the rest of the doc updates.
+- **TYP-66 filed** (separate ticket) — attendee tracking on outings + events. Came out of an unrelated product question during TYP-49 ("can friend activity also say who they went with"). Decision: out of scope for TYP-49; separate concept (attendance ≠ invitation), needs schema migration + iOS sheet at outing-completion. Estimate snapped to 8pt by Linear (cap).
+- **TYP-67 filed** — UI/UX polish on PlaceDetailView. Next up.
+
 ### 2026-05-15 (later) — TYP-61 + TYP-41 merged: Profile settings screen + bio field
 
 - **Merged in PR #27** (commit `33fb8de`). Branch was `typ-61-ios-profile-settings-sheet`. Two Linear tickets in one PR: TYP-41 (backend bio field) + TYP-61 (iOS settings screen). Bundled because the iOS work is meaningless without the column.

@@ -4,8 +4,6 @@
 # Blocks Claude from finishing if significant code changes were made
 # but CLAUDE.md / README.md were not updated to reflect them.
 
-set -e
-
 INPUT=$(cat)
 
 # Don't recurse
