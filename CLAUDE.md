@@ -207,12 +207,12 @@ iOS:
 - **TYP-60** — Profile Saved list (merged 2026-05-15 PR #26 — see `docs/TYP_60_HANDOFF.md`)
 - **TYP-61** — Profile settings screen (push-navigation from gear icon, row-style edit pattern with single-field edit sheets, two-stage save flow, logout moved here from Profile; drive-by `APIClient` fix for Postgres microsecond timestamps that broke strict `.iso8601` parsing) — merged 2026-05-15 PR #27, bundled with TYP-41 — see `docs/TYP_61_HANDOFF.md`
 - **TYP-49** — PlaceDetailView functional v1: pushed from Profile Places + Saved rows, header (icon/name/category/lat-lng), your-rating section calling `GET /places/{id}/my_rating`, friends activity section calling TYP-65 endpoint, Save/Unsave action (Rate + Plan visible-but-disabled until TYP-29 + Plan tab); new `requestVoid` on APIClient for 204 endpoints; new `FriendRating`/`FriendSave`/`FriendsActivityItem` discriminated enum in `Models.swift`; Places-tab entries construct `Place` with `lat=0, lng=0` sentinel (header line hidden when zero) — merged 2026-05-22 PR #29; visual polish punted to TYP-67
+- **TYP-67** — PlaceDetailView UI/UX polish: 60pt orange-tinted category icon block in header, 32pt rounded-bold place name, unified 18pt section headers, action-pill row (filled-accent Save / outlined-accent Saved / outlined-disabled Rate + Plan), tier-coloured `scorePill` (green ≥6.7, amber ≥3.4, red below) reused in your-rating + friends activity, friends-activity rows redesigned with 40pt initials avatar + name/verb/relative-time stack + trailing score pill (for ratings) or filled bookmark icon (for saves), warm italic empty states, local `RelativeDateTimeFormatter` helper, redundant "You rated this X.X" text replaced with relative time next to the pill
 
 Check `backend/app/models/` and `backend/alembic/versions/` for current schema state.
 
 ### Queued / blocked
 
-- **TYP-67** (PlaceDetailView UI/UX polish) — next up; design-system pass on the functional shell from TYP-49
 - **TYP-66** (attendee tracking on outings + events) — new schema (`event_attendees`, `outing_attendees`), `PUT /outings/{id}/attendees` + iOS picker at outing-completion; precursor to "who you went with" on place detail
 - **TYP-62** (real friends count on Profile) — blocked on TYP-43
 - **TYP-64** (extract `ScorePill` + `CategoryIcon` into reusable components) — cleanup, queued for when a third consumer (Feed or Search tab) needs them; TYP-67 may surface the third consumer

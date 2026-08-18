@@ -6,6 +6,19 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-08-17 — TYP-67 shipped: PlaceDetailView UI/UX polish
+
+- Design-system pass on the functional shell that shipped with TYP-49. Function-first was in PR #29; polish is this PR.
+- **Header**: 60pt orange-tinted category icon block, 32pt SF Pro Rounded bold place name, category subtext, lat/lng gated (hidden when both are `0` — matches the sentinel-construction path from Places-tab entries).
+- **Section headers unified** at `18pt semibold` across "Your rating" and "Friends activity."
+- **Action pills** — Save flips between filled-accent (Save) and outlined-accent (Saved); Rate + Plan stay `outlinedDisabled` with grey separator border until TYP-29 + Plan tab land.
+- **`scorePill(_ rating:)` locked to your Profile tier thresholds** (green ≥6.7, amber ≥3.4, red below) and reused in both your-rating and friends-activity rows. Second consumer of the pattern; TYP-64 (extract to reusable component) still waits for consumer #3.
+- **Friends-activity rows redesigned**: 40pt initials avatar (accent-tinted, `initialsAvatar` duplicated locally from `ProfileView` — same rule-of-three logic) + name (15pt semibold) + `"Rated · 3d ago"` / `"Saved · 3d ago"` subtitle + trailing element (score pill for ratings, filled bookmark icon for saves). Uses `AnyView` to unify the two branches into one row builder; acceptable at friends-list sizes.
+- **Local `relativeTime(_:)` helper** wraps `RelativeDateTimeFormatter` with `.short` style. Reused in the your-rating row (replaces the redundant "You rated this X.X" text next to the pill) and in every friends-activity row.
+- **Empty states warmed** — "No friends have rated or saved this yet" in italic secondary. Matches the tone of the Profile-tab empty states.
+- **Save-button state hydration gap surfaced (out of scope)**: entries from the Places tab construct `Place` from `PlaceRating` rows which don't carry `is_saved`, so the button initially shows the not-saved state even for bookmarked places. Fix would be a proper `GET /places/{place_id}` endpoint that returns the full `PlaceOut` for the caller. Not filed yet.
+- **Dev-env recovery this session** (unblocker, not scope of TYP-67): dead Supabase project killed both auth AND `DATABASE_URL` (which had drifted to point at Supabase's Postgres instead of local). New Supabase project created, `.env` `DATABASE_URL` moved to local Postgres.app (`postgresql+psycopg://alant@localhost:5432/type_a_dev`), `Local.xcconfig` LAN IP refreshed to `192.168.1.185`, seed data reassigned from the dead old-Supabase user_id to the new one via a one-shot `UPDATE ... SET user_id/creator_id = ...` transaction.
+
 ### 2026-05-22 — TYP-49 + TYP-65 merged (+ TYP-21 drive-by); TYP-66 and TYP-67 filed
 
 - **PR #28 (TYP-65)** merged at `5d2d39a` — backend `/places/{id}/friends_activity` endpoint. **PR #29 (TYP-49)** merged at `de0088d` — iOS PlaceDetailView functional v1 + TYP-21 drive-by fix to `/places/{id}/my_rating` (latent ORM/Pydantic schema mismatch that 500'd before TYP-49 became the first consumer).
