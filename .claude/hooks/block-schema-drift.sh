@@ -4,8 +4,6 @@
 # Ensures consistency: if SQLAlchemy models changed, a migration must exist.
 # If Pydantic schemas changed, reminds about frontend TypeScript types.
 
-set -e
-
 INPUT=$(cat)
 
 # Don't recurse — if this hook already forced Claude to continue, let it finish

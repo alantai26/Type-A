@@ -79,19 +79,87 @@ struct PlaceDetailView: View {
     }
 
     private var actionsSection: some View {
-        HStack(spacing: 16) {
-            Button(isSaved ? "Unsave" : "Save") {
+        HStack(spacing: 10) {
+            pillButton(
+                label: isSaved ? "Saved" : "Save",
+                icon: isSaved ? "bookmark.fill" : "bookmark",
+                style: isSaved ? .outlinedAccent : .filledAccent,
+                disabled: isToggling
+            ) {
                 Task { await toggleSave() }
             }
-            .disabled(isToggling)
 
-            Button("Rate") { }
-                .disabled(true)
+            pillButton(
+                label: "Rate",
+                icon: "star",
+                style: .outlinedDisabled,
+                disabled: true
+            ) { }
 
-            Button("Plan") { }
-                .disabled(true)
+            pillButton(
+                label: "Plan",
+                icon: "calendar",
+                style: .outlinedDisabled,
+                disabled: true
+            ) { }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
+    }
+
+    private enum PillStyle {
+        case filledAccent
+        case outlinedAccent
+        case outlinedDisabled
+    }
+
+    private func pillButton(
+        label: String,
+        icon: String,
+        style: PillStyle,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(pillBackground(style))
+            .foregroundStyle(pillForeground(style))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(pillBorder(style), lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+    }
+
+    private func pillBackground(_ style: PillStyle) -> Color {
+        switch style {
+        case .filledAccent: return Color.accentColor
+        case .outlinedAccent, .outlinedDisabled: return Color.clear
+        }
+    }
+
+    private func pillForeground(_ style: PillStyle) -> Color {
+        switch style {
+        case .filledAccent: return .white
+        case .outlinedAccent: return Color.accentColor
+        case .outlinedDisabled: return .secondary
+        }
+    }
+
+    private func pillBorder(_ style: PillStyle) -> Color {
+        switch style {
+        case .filledAccent: return Color.clear
+        case .outlinedAccent: return Color.accentColor
+        case .outlinedDisabled: return Color(uiColor: .separator)
+        }
     }
 
     private func toggleSave() async {
@@ -114,26 +182,91 @@ struct PlaceDetailView: View {
     }
 
     private var friendsActivitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Friends activity")
-                .font(.headline)
+                .font(.system(size: 18, weight: .semibold))
+
             if !friendsActivityLoaded {
                 ProgressView()
             } else if friendsActivity.isEmpty {
-                Text("No friends activity yet")
+                Text("No friends have rated or saved this yet")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .italic()
             } else {
-                ForEach(Array(friendsActivity.enumerated()), id: \.offset) { _, item in
-                    switch item {
-                    case .rating(let r):
-                        Text("\(r.displayName) rated this \(String(format: "%.1f", r.rating))")
-                    case .save(let s):
-                        Text("\(s.displayName) saved this")
+                VStack(spacing: 8) {
+                    ForEach(Array(friendsActivity.enumerated()), id: \.offset) { _, item in
+                        friendsActivityRow(item)
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func friendsActivityRow(_ item: FriendsActivityItem) -> some View {
+        switch item {
+        case .rating(let r):
+            activityRow(
+                displayName: r.displayName,
+                verb: "Rated",
+                createdAt: r.createdAt,
+                trailing: AnyView(scorePill(r.rating))
+            )
+        case .save(let s):
+            activityRow(
+                displayName: s.displayName,
+                verb: "Saved",
+                createdAt: s.createdAt,
+                trailing: AnyView(
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                )
+            )
+        }
+    }
+
+    private func activityRow(
+        displayName: String,
+        verb: String,
+        createdAt: Date,
+        trailing: AnyView
+    ) -> some View {
+        HStack(spacing: 12) {
+            initialsAvatar(name: displayName, size: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("\(verb) · \(relativeTime(createdAt))")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            trailing
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func initialsAvatar(name: String, size: CGFloat) -> some View {
+        let initial = name.first.map { String($0).uppercased() } ?? "?"
+        return Text(initial)
+            .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(Color.accentColor)
+            .clipShape(Circle())
+    }
+
+    private func relativeTime(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     private var myRatingSection: some View {
@@ -146,7 +279,7 @@ struct PlaceDetailView: View {
             } else if let rating = myRating {
                 HStack(spacing: 12) {
                     scorePill(rating.rating)
-                    Text("You rated this \(String(format: "%.1f", rating.rating))")
+                    Text(relativeTime(rating.createdAt))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

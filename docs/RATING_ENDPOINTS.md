@@ -10,7 +10,7 @@ What got built, why, and what was learned. Companion to `handoff-04-30-1103pm.md
 |---|---|---|
 | POST | `/place_ratings` | rate a place; always inserts (no overwrite). 0.0–10.0. |
 | GET | `/me/place_ratings` | user's ratings, deduped to latest-per-place via `DISTINCT ON`, sorted `rating DESC`. |
-| GET | `/places/{place_id}/my_rating` | latest rating user has for this place; returns **null** (not 404) if none. Client falls back to ML rec score. |
+| GET | `/places/{place_id}/my_rating` | latest rating user has for this place; returns **null** (not 404) if none. Client falls back to ML rec score. *(Note: repo `get_latest_for_user_place` JOINs `places` to hydrate `place_name + category` — fixed in TYP-49 / PR #29; original implementation returned a raw ORM row that 500'd Pydantic validation.)* |
 | POST | `/outings/{outing_id}/rate` | writes `outings.final_rating` + per-event `weight`; cascades outing + events to `completed`. |
 
 All require Bearer JWT.
