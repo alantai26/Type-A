@@ -6,6 +6,15 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-08-19 — mvML path locked; TYP-68 (seed scaffolding) shipped
+
+- **mvML sequence chosen** to unblock ML work without waiting on iOS UI or real users. Skips TestFlight + Rate/Search/Plan UI in favor of hand-curated synthetic seed data. Real user-driven data collection resumes post-mvML.
+- **Filed 5 tickets**: TYP-68 (seed scaffolding, 2pt), TYP-69 (hand-curated data by Alan, 4pt), TYP-70 (Atomic Recommender ridge + eval, 8pt), TYP-71 (Attribution Model hierarchical, 8pt), TYP-72 (iOS Recommended Score display, 2pt). Sequence encoded via Blocks/Blocked-by in each Linear description.
+- **TYP-68 shipped**: `backend/scripts/seed_dev_data.py` refactored to expose 5 idempotent helpers taking an explicit `db: Session` — `create_user`, `create_place`, `create_rating` (append-only per TYP-21), `create_saved`, `create_outing_with_stops`. Outing helper auto-inserts the creator `OutingInvitation` with `rsvp_status='accepted'` to mirror TYP-19's API retrofit so seeded state matches API-created state.
+- **`main()` refactored** to use the helpers — original TYP-58/59/60 seed rows still land unchanged. Real user is still fetched (not `create_user`d) to avoid duplicating the Supabase-issued `user_id`.
+- **CLAUDE.md was stale on one detail**: `saved_places.created_at` DOES exist as a column (TYP-60 handoff claimed it was deferred). `create_saved` accepts an optional `created_at` accordingly. Worth updating in a doc-cleanup pass.
+- **Rating UX for real users (post-mvML)**: Beli-style — 3-tier picker → binary comparison against previously-rated items in the same tier → derived numeric rating. First-in-tier accepts the tier midpoint (~8.5 / 5.5 / 2.5). Matches TYP-45's design.
+
 ### 2026-08-17 — TYP-67 shipped: PlaceDetailView UI/UX polish
 
 - Design-system pass on the functional shell that shipped with TYP-49. Function-first was in PR #29; polish is this PR.

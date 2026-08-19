@@ -1,9 +1,14 @@
 """
-Dev seed script — insert sample places + ratings for a local user.
+Dev seed script — insert sample places, ratings, outings, and saves.
 
-Place inserts are idempotent (matched by name — re-running won't duplicate).
-Rating inserts always append a new row (append-only by design per TYP-21);
-DISTINCT ON dedupe at read time gives the latest score per place.
+Structured as reusable helpers (TYP-68) that TYP-69 will use to hand-curate
+a synthetic training dataset for the mvML models. `main()` demonstrates the
+helpers by recreating the original TYP-58/59/60 seed rows for Alan's real user.
+
+Idempotency:
+- users, places, saved_places, outings: matched by natural key; safe to re-run
+- place_ratings: append-only per TYP-21; every run adds a new row (dedup happens
+  at read-time via DISTINCT ON)
 
 Usage:
     cd backend && source venv/bin/activate
@@ -15,7 +20,8 @@ Prints the connected database host as a sanity check before writing.
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -26,14 +32,176 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
 from sqlalchemy import select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 from app.db import SessionLocal  # noqa: E402
 from app.models.events import Event  # noqa: E402
+from app.models.outing_invitations import OutingInvitation  # noqa: E402
 from app.models.outings import Outing  # noqa: E402
 from app.models.place_ratings import PlaceRating  # noqa: E402
 from app.models.places import Place  # noqa: E402
 from app.models.saved_places import SavedPlace  # noqa: E402
 from app.models.users import User  # noqa: E402
+
+# --- Helpers (TYP-68) --------------------------------------------------------
+#
+# These are the reusable primitives TYP-69 uses to hand-curate synthetic
+# training data. All are idempotent except create_rating (append-only).
+
+
+def create_user(
+    db: Session,
+    email: str,
+    display_name: str,
+    bio: str | None = None,
+) -> User:
+    """Idempotent by email. Updates display_name/bio if the row already exists."""
+    user = db.scalar(select(User).where(User.email == email))
+    if user is None:
+        user = User(email=email, display_name=display_name, bio=bio)
+        db.add(user)
+        db.flush()
+        print(f"  + user: {email}")
+        return user
+
+    if user.display_name != display_name:
+        old = user.display_name
+        print(f"  ~ user {email}: display_name {old!r} → {display_name!r}")
+        user.display_name = display_name
+    if bio is not None and user.bio != bio:
+        user.bio = bio
+    return user
+
+
+def create_place(
+    db: Session,
+    name: str,
+    category: str,
+    lat: float,
+    lng: float,
+    source_url: str | None = None,
+) -> Place:
+    """Idempotent by name."""
+    place = db.scalar(select(Place).where(Place.name == name))
+    if place is None:
+        place = Place(
+            name=name,
+            category=category,
+            latitude=lat,
+            longitude=lng,
+            source_url=source_url,
+        )
+        db.add(place)
+        db.flush()
+        print(f"  + place: {name}")
+    return place
+
+
+def create_rating(
+    db: Session,
+    user_id: uuid.UUID,
+    place_id: uuid.UUID,
+    rating: float,
+    created_at: datetime | None = None,
+) -> PlaceRating:
+    """Append-only per TYP-21. Every call inserts a new row."""
+    pr = PlaceRating(user_id=user_id, place_id=place_id, rating=rating)
+    if created_at is not None:
+        pr.created_at = created_at
+    db.add(pr)
+    return pr
+
+
+def create_saved(
+    db: Session,
+    user_id: uuid.UUID,
+    place_id: uuid.UUID,
+    created_at: datetime | None = None,
+) -> SavedPlace:
+    """Idempotent on the (user_id, place_id) composite PK."""
+    existing = db.scalar(
+        select(SavedPlace).where(
+            SavedPlace.user_id == user_id,
+            SavedPlace.place_id == place_id,
+        )
+    )
+    if existing is not None:
+        return existing
+    sp = SavedPlace(user_id=user_id, place_id=place_id)
+    if created_at is not None:
+        sp.created_at = created_at
+    db.add(sp)
+    return sp
+
+
+def create_outing_with_stops(
+    db: Session,
+    creator_id: uuid.UUID,
+    title: str,
+    stops: list[tuple[uuid.UUID, float]],
+    final_rating: float,
+    scheduled_for: datetime | None = None,
+    completed_at: datetime | None = None,
+) -> Outing:
+    """Idempotent on (creator_id, title).
+
+    Creates: 1 completed outing + N completed events (with sequence_position + weight)
+    + creator auto-invitation with rsvp_status='accepted' (matches TYP-19 API behavior).
+
+    `stops` is a list of (place_id, weight) tuples in intended sequence order.
+    Weights are not normalized here — the caller decides the shape.
+    """
+    existing = db.scalar(
+        select(Outing).where(
+            Outing.creator_id == creator_id,
+            Outing.title == title,
+        )
+    )
+    if existing is not None:
+        return existing
+
+    if completed_at is None:
+        completed_at = datetime.now(UTC)
+    if scheduled_for is None:
+        scheduled_for = completed_at
+
+    outing = Outing(
+        creator_id=creator_id,
+        title=title,
+        status="completed",
+        scheduled_for=scheduled_for,
+        completed_at=completed_at,
+        final_rating=final_rating,
+    )
+    db.add(outing)
+    db.flush()
+
+    for position, (place_id, weight) in enumerate(stops, start=1):
+        event = Event(
+            creator_id=creator_id,
+            place_id=place_id,
+            outing_id=outing.outing_id,
+            sequence_position=position,
+            status="completed",
+            scheduled_for=scheduled_for,
+            completed_at=completed_at,
+            weight=weight,
+        )
+        db.add(event)
+
+    db.add(
+        OutingInvitation(
+            user_id=creator_id,
+            outing_id=outing.outing_id,
+            rsvp_status="accepted",
+        )
+    )
+
+    print(f"  + outing: {title} = {final_rating} ({len(stops)} stops)")
+    return outing
+
+
+# --- Sample data (Alan's real user; recreates TYP-58/59/60 rows) -------------
 
 PLACES_AND_RATINGS = [
     ("Trillium Brewing", "Brewery", 42.3491, -71.0517, 9.1),
@@ -44,14 +212,12 @@ PLACES_AND_RATINGS = [
 ]
 
 # (title, days_ago, final_rating, [place_name, ...])
-# days_ago controls completed_at — most-recent first in TYP-59's Profile list.
 OUTINGS = [
     ("Friday Brewery Night", 3, 8.7, ["Trillium Brewing", "Tasty Burger"]),
     ("Saturday Day Out", 10, 9.2, ["Top Golf", "Bar Lyon"]),
     ("Coffee & Drinks", 21, 7.5, ["Tatte Bakery", "Bar Lyon"]),
 ]
 
-# Places bookmarked by the user — populates TYP-60's Profile Saved list.
 SAVES = ["Trillium Brewing", "Tatte Bakery"]
 
 
@@ -72,94 +238,46 @@ def main() -> None:
 
     db = SessionLocal()
 
+    # Real user must already exist (created by JWT auto-provisioning). Fetch
+    # rather than create so we don't accidentally spawn a duplicate under a
+    # different user_id from the one Supabase issued.
     user = db.scalar(select(User).where(User.email == args.email))
     if user is None:
         print(f"User not found: {args.email}")
         sys.exit(1)
-
     if user.display_name != args.display_name:
         print(f"  ~ display_name: {user.display_name!r} → {args.display_name!r}")
         user.display_name = args.display_name
-
     print(f"Seeding for user: {user.email} ({user.display_name})")
 
+    places_by_name: dict[str, Place] = {}
     for name, category, lat, lng, score in PLACES_AND_RATINGS:
-        place = db.scalar(select(Place).where(Place.name == name))
-        if place is None:
-            place = Place(name=name, category=category, latitude=lat, longitude=lng)
-            db.add(place)
-            db.flush()
-            print(f"  + place: {name}")
-        else:
-            print(f"  = place exists: {name}")
-
-        rating = PlaceRating(
-            user_id=user.user_id,
-            place_id=place.place_id,
-            rating=score,
-        )
-        db.add(rating)
+        place = create_place(db, name, category, lat, lng)
+        places_by_name[name] = place
+        create_rating(db, user.user_id, place.place_id, score)
         print(f"  + rating: {name} = {score}")
 
     for title, days_ago, final_rating, place_names in OUTINGS:
-        existing = db.scalar(
-            select(Outing).where(
-                Outing.creator_id == user.user_id,
-                Outing.title == title,
-            )
-        )
-        if existing is not None:
-            print(f"  = outing exists: {title}")
-            continue
-
-        completed_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
-        outing = Outing(
+        completed_at = datetime.now(UTC) - timedelta(days=days_ago)
+        stops = [
+            (places_by_name[p].place_id, 1.0 / len(place_names)) for p in place_names
+        ]
+        create_outing_with_stops(
+            db,
             creator_id=user.user_id,
             title=title,
-            status="completed",
+            stops=stops,
+            final_rating=final_rating,
             scheduled_for=completed_at,
             completed_at=completed_at,
-            final_rating=final_rating,
         )
-        db.add(outing)
-        db.flush()
-
-        equal_weight = 1.0 / len(place_names)
-        for position, p_name in enumerate(place_names, start=1):
-            place = db.scalar(select(Place).where(Place.name == p_name))
-            if place is None:
-                print(f"  ! missing place for outing event: {p_name}")
-                continue
-            event = Event(
-                creator_id=user.user_id,
-                place_id=place.place_id,
-                outing_id=outing.outing_id,
-                sequence_position=position,
-                status="completed",
-                scheduled_for=completed_at,
-                completed_at=completed_at,
-                weight=equal_weight,
-            )
-            db.add(event)
-
-        print(f"  + outing: {title} = {final_rating} ({len(place_names)} stops)")
 
     for name in SAVES:
-        place = db.scalar(select(Place).where(Place.name == name))
+        place = places_by_name.get(name)
         if place is None:
             print(f"  ! missing place for save: {name}")
             continue
-        existing_save = db.scalar(
-            select(SavedPlace).where(
-                SavedPlace.user_id == user.user_id,
-                SavedPlace.place_id == place.place_id,
-            )
-        )
-        if existing_save is not None:
-            print(f"  = save exists: {name}")
-            continue
-        db.add(SavedPlace(user_id=user.user_id, place_id=place.place_id))
-        print(f"  + save: {name}")
+        create_saved(db, user.user_id, place.place_id)
 
     db.commit()
     print("Done.")
