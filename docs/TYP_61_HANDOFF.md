@@ -103,7 +103,7 @@ The temporary red Logout button at the bottom of Profile is now gone. Logout liv
 
 - **TYP-49 — iOS Place detail screen** is the agreed next ticket. 8 pts, Medium priority. The detail screen is the hub when a place row is tapped from Search / Profile / Feed. No backend dependencies; the data shape comes from existing `/places/{id}/predict`, `/places/{id}/my_rating`, and place fields. Friends-who-rated/saved-this-place section may want a new backend endpoint — decide once at start.
 - **Two-line cleanup in ProfileView** (cosmetic, optional): `isSigningOut` state at `ProfileView.swift:27` and `signOut()` func at `ProfileView.swift:491-495` are leftover after the orphan deletion — both are unused. Swift won't warn but they could be removed for tidiness.
-- **`Local.xcconfig` IP staleness** surfaced during testing this session — the file had `API_BASE_URL = http://192.168.1.185:8000`, but the Mac was only on a Tailscale interface (`100.119.156.130`). Either `localhost:8000` (simulator) or the Tailscale IP (device, both peers on Tailnet). Not committed; per-dev concern.
+- **`Local.xcconfig` IP staleness** surfaced during testing this session — the file's `API_BASE_URL` pointed at a stale LAN IP, but the Mac had rotated to a Tailscale-only interface. Either `localhost:8000` (simulator) or the current Tailscale IP (device, both peers on Tailnet) works. Not committed; per-dev concern.
 
 ---
 
