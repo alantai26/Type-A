@@ -42,6 +42,11 @@ Original 20-item checklist from a "20 things to have Claude do before launching 
 - **Add security headers** — no `X-Content-Type-Options: nosniff`, no `Strict-Transport-Security`, no `Referrer-Policy`. Render may set some defaults — worth `curl -I https://type-a-api.onrender.com/health` to confirm. FastAPI middleware fix is ~5 lines: `app.add_middleware(SecurityHeadersMiddleware, ...)`.
 - **Scan dependencies** — no `pip-audit`, `safety`, Dependabot, or Renovate. `requirements.txt` is pinned but nothing checks for CVEs. Fix: add GitHub Dependabot config (one YAML file).
 
+## Hook gaps
+
+- **`protect-files.sh` doesn't scan write CONTENT for env values.** It blocks Edit/Write on `.env` itself but doesn't stop Claude from copying `DATABASE_URL` / `SUPABASE_*` values into other files (docs, code, comments). This bit us on 2026-08-19 when the full local `DATABASE_URL` got copied from `CLAUDE.md` into `docs/LEARNING_MVML_SESSION.md`. Redacted both.
+- **Fix**: extend the PreToolUse Edit|Write hook to regex-match outgoing `new_string` / `content` against `(DATABASE_URL|SUPABASE_.*_KEY|API_KEY)\s*=` patterns and reject.
+
 ## Additional items (not on the checklist but surfaced during audit)
 
 - **Rate limiting on our own endpoints** — nothing prevents:

@@ -79,7 +79,7 @@ Actually — careful re-reading: on upgrade, after the `UPDATE` no rows have the
 cd backend
 alembic revision -m "<descriptive message>"      # creates empty stub
 # fill in upgrade() and downgrade() in the generated file
-alembic upgrade head                              # applies to type_a_dev
+alembic upgrade head                              # applies to the DB in .env
 ```
 
 A PreToolUse hook (`.claude/hooks/block-direct-migration-write.sh`) prevents Claude from writing migration files directly — they must go through the alembic CLI so revision IDs and `down_revision` chains are generated correctly. If Claude needs to "write" a migration, it should output the SQL/Python for the user to paste into the generated stub.
