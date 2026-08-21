@@ -21,7 +21,7 @@ The composite entity is called `outing` rather than `night` because TypeA handle
 
 ## Repo Layout
 
-The Python backend lives in `backend/`. The SwiftUI iOS client lives in `ios/TypeA/` (TYP-25 onward). Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline. All backend commands below assume `cd backend` first. Long-form design docs live in `docs/`: `CURRENT_HANDOFF.md` is the living rolling doc (start here); per-ticket archaeology lives in `TYP_*_HANDOFF.md`; per-topic deep-dives in `JWT_AUTH_UNDERSTANDING.md`, `ML_RATING_UNDERSTANDING.md`, `TAB_SWITCHING_UNDERSTANDING.md`, `ALEMBIC_NOTES.md`, `RATING_ENDPOINTS.md`, `FRIENDSHIPS_ENDPOINTS.md`.
+The Python backend lives in `backend/`. The SwiftUI iOS client lives in `ios/TypeA/` (TYP-25 onward). Other top-level dirs (`eval/`, `fixtures/`, `coefficients/`, `plots/`) are placeholders for the ML pipeline. All backend commands below assume `cd backend` first. Long-form design docs live in `docs/`: `CURRENT_HANDOFF.md` is the living rolling doc (start here); per-ticket archaeology lives in `TYP_*_HANDOFF.md`; per-topic deep-dives in `JWT_AUTH_UNDERSTANDING.md`, `ML_RATING_UNDERSTANDING.md`, `TAB_SWITCHING_UNDERSTANDING.md`, `ALEMBIC_NOTES.md`, `RATING_ENDPOINTS.md`, `FRIENDSHIPS_ENDPOINTS.md`, `SECURITY_CONSIDERATIONS.md`.
 
 ## Commands
 
@@ -160,11 +160,20 @@ Auth flow: clients send `Authorization: Bearer <supabase_jwt>`. The server fetch
 
 Branches: `main` → `dev` (active development) → `prod` (release snapshots). Feature branches off `dev`, named like `TYP-8-database-schema`. PRs target `dev`. Commit messages prefixed with ticket ID (e.g. `TYP-8: ...`), include `Fixes TYP-X` to auto-close Linear tickets.
 
+## Claude Code Skills
+
+Two project skills in `.claude/skills/` encode the per-ticket ritual so it doesn't have to be re-explained each session:
+
+- **`/start-ticket TYP-N`** — reads `docs/CURRENT_HANDOFF.md` + the Linear ticket, orients in the repo read-only, **verifies the ticket's claims against the actual codebase** (tickets go stale — files move, deps named in the ticket aren't installed, the layered architecture gets ignored), queries the local DB for data tickets, then outputs context → discrepancies → decisions needed → step plan → branch name. Ends with a question and does not write implementation code.
+- **`/wrap-ticket TYP-N`** — documents from the real diff, writes `docs/TYP_N_HANDOFF.md`, prepends an entry to `CURRENT_HANDOFF.md`, updates this file, refreshes memory, offers the Linear status change, then emits **only** the PR-body markdown for copy-paste.
+
+Both are bound by the same rule: **never run state-mutating git commands.** Alan creates branches, commits, pushes, and opens PRs himself.
+
 ## Claude Code Hooks
 
 Six hooks configured in `.claude/settings.json` (project root):
 
-- **`protect-files.sh`** (PreToolUse: Edit|Write) — blocks edits to `.env`, `.git/`, credentials, keys
+- **`protect-files.sh`** (PreToolUse: Edit|Write) — two parts. (1) blocks edits to `.env`, `.git/`, credentials, keys by **path**; (2) blocks writing secret-shaped **values** into any other file (env assignments with real values, DB URLs with embedded credentials, inline private keys, `AKIA` IDs, long `SECRET|TOKEN|PASSWORD` values). Part 2 was added in TYP-69 after a real `DATABASE_URL` leaked *out of* `CLAUDE.md` into a notes doc. `.env.example` is exempt from both. When docs need to discuss env vars, reference them by **name**, never by literal value.
 - **`block-direct-migration-write.sh`** (PreToolUse: Edit|Write) — blocks Edit/Write to `alembic/versions/`; use the alembic CLI to generate the stub first
 - **`block-dangerous.sh`** (PreToolUse: Bash) — blocks `rm -rf`, `DROP`, force push, `git reset --hard`
 - **`block-direct-db.sh`** (PreToolUse: Bash) — blocks raw SQL writes via psql (SELECT/inspect allowed)
@@ -196,6 +205,8 @@ Backend:
 - **TYP-63** — README cleanup (merged 2026-05-12 PR #23)
 - **TYP-65** — `/places/{id}/friends_activity`: caller's accepted-friends' rating + save activity on a place; discriminated `FriendRatingOut | FriendSaveOut` mirroring `/me/feed`; ratings deduped to latest-per-friend via `DISTINCT ON (pr.user_id)`, saves PK-deduped; one row per action (not per friend); first endpoint in the places domain to use the service layer (`app/services/places.py`) — merged 2026-05-22 PR #28
 - **TYP-21 drive-by fix** — `/places/{id}/my_rating` was returning a raw `PlaceRating` ORM row missing `place_name` + `category`, causing Pydantic 500. `get_latest_for_user_place` now mirrors `list_by_user`'s join (rode along in PR #29)
+- **TYP-68** (mvML-1) — `backend/scripts/seed_dev_data.py` refactored into 5 reusable idempotent helpers taking an explicit `db: Session`: `create_user`, `create_place`, `create_rating` (append-only per TYP-21), `create_saved`, `create_outing_with_stops` (merged 2026-08-19 PR #33)
+- **TYP-69** (mvML-2) — `backend/scripts/seed_ml_data.py`: synthetic ML training data generated from an 8-persona × 5-category `PREFERENCE_MATRIX` answer key; 26 Boston places, `--coverage 0.85`, `--seed 42`; outings pair a 0.7-weight top-preference stop with a 0.3-weight bottom-preference stop so the attribution model has ground truth. Also hardened `.claude/hooks/protect-files.sh` with secret-value content scanning and added `docs/SECURITY_CONSIDERATIONS.md` (merged 2026-08-19 PRs #34/#35 — see `docs/TYP_69_HANDOFF.md`)
 
 iOS:
 - **TYP-25** — project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models

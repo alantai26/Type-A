@@ -1,0 +1,15 @@
+# Training-only dependencies (TYP-70). NOT installed on Render.
+#
+# Inference is `X @ coef + intercept`, which needs numpy alone — numpy lives in
+# requirements.txt. scikit-learn pulls scipy, and together they're ~143MB on a
+# 512MB free-tier dyno for code that never runs in the request path.
+#
+# This is why the model artifact is JSON (`coefficients/atomic_v1.json`) rather
+# than a sklearn pickle: unpickling an estimator would force sklearn back into
+# the runtime.
+#
+#   ./venv/bin/pip install -r requirements-ml.txt
+
+-r requirements.txt
+
+scikit-learn==1.9.0
