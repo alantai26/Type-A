@@ -6,6 +6,19 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-08-19 (later) — TYP-69 shipped: synthetic ML training data + security hardening
+
+- **Merged in PRs #34 + #35** (commits `6d673aa`, `703eb5c`). Branch `typ-69-mvml-2-hand-curated-seed-data-alan`. Full breakdown in `docs/TYP_69_HANDOFF.md`.
+- **`backend/scripts/seed_ml_data.py`** — a generator, not a fixture list. 8 personas × 5 categories in a `PREFERENCE_MATRIX` of `(low, high)` rating ranges; 26 real Boston places; ratings sampled uniformly within each cell at `--coverage 0.85`; `--seed 42` default for reproducibility. Built on TYP-68's helpers.
+- **The matrix IS the eval target.** TYP-70's eval script must recover each cell's midpoint from the fitted user×category interaction. `omnivore` (flat 6–8) and `hater` (flat 2–4) are deliberate degenerate personas — they prove the model learns a *user intercept* separately from *category preference*.
+- **Outings built for TYP-71**: each pairs a top-2-preference stop at `weight=0.7` with a bottom-2 stop at `weight=0.3`; `final_rating` is the exact weighted sum. The attribution model has literal ground truth to be scored against.
+- **MAE floor ≈ 0.5** — uniform sampling within a 2-wide range bounds the best achievable error. A model at ~0.5 has hit the ceiling, not a bug.
+- **Local DB state**: 10 users (8 synthetic), 32 places (26 new), 193 ratings (168 synthetic), 47 outings (40 synthetic), 94 events. Verified 2026-08-21.
+- **⚠️ `places.category` is not a closed taxonomy** — pre-existing seed rows carry `Brewery`, `park`, and lowercase `restaurant` alongside the 5 canonical values. `restaurant` vs `Restaurant` would become two one-hot columns for one concept. TYP-70 must handle this explicitly (normalize, filter, or clean). No CHECK constraint exists on the column, unlike `status`/`rsvp_status`; adding one needs a migration + backfill — worth filing, out of mvML scope.
+- **Re-running the script appends ratings** (TYP-21 append-only). TYP-70 must train on latest-per-`(user, place)` via `DISTINCT ON`, or a re-run silently double-weights every observation.
+- **`.claude/hooks/protect-files.sh` hardened** — was path-only, now also scans outgoing Write `content` / Edit `new_string` for secret-shaped values (env assignments with real values, DB URLs with embedded credentials, inline private keys, `AKIA` IDs, long `SECRET|TOKEN|PASSWORD` values). Triggered by a real leak this session: the local `DATABASE_URL` was copied *out of* `CLAUDE.md` into a session-notes doc, which the path-based check allowed. Literal URLs/IPs redacted from `CLAUDE.md`, `ALEMBIC_NOTES.md`, `CURRENT_HANDOFF.md`, `TYP_61_HANDOFF.md`. An `.env.example` early-exit was needed so the template stays editable.
+- **`docs/SECURITY_CONSIDERATIONS.md` added** — living audit (✅ Have / ⚠️ Partial / ❌ Missing / N/A) with 7 prioritized pre-TestFlight tickets. Biggest real gaps: git-history secret scan, security headers middleware, Dependabot, rate limiting on `POST /place_ratings` + `/friends/requests`, cross-user authz sweep. **None block mvML.**
+
 ### 2026-08-19 — mvML path locked; TYP-68 (seed scaffolding) shipped
 
 - **mvML sequence chosen** to unblock ML work without waiting on iOS UI or real users. Skips TestFlight + Rate/Search/Plan UI in favor of hand-curated synthetic seed data. Real user-driven data collection resumes post-mvML.
@@ -220,7 +233,10 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 
 ### ML
 - **Schema ready**: `outings.derived_score` (frozen at confirm), `attribution_outputs.attributed_effect` (per-user per-place), `events.weight` (per-stop slider)
-- **Implementation deferred** until iOS ships real rating data. Recommendations endpoint will use popularity-fallback in v1.
+- **mvML path active** (since 2026-08-19) — supersedes the earlier "wait for real rating data" sequencing. Synthetic training data is seeded and the models train against it now.
+- **Training data shipped** (TYP-69): 168 synthetic ratings + 40 weighted 2-stop outings across 8 preference personas, generated from a `PREFERENCE_MATRIX` answer key in `backend/scripts/seed_ml_data.py`.
+- **Next**: TYP-70 (Atomic Recommender, ridge) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5.
+- Recommendations endpoint will still use popularity-fallback in v1.
 
 ### Design
 - **TYP-34** in progress (Figma wireframes for Plan tab / homepage)
