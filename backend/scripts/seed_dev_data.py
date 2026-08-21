@@ -203,9 +203,18 @@ def create_outing_with_stops(
 
 # --- Sample data (Alan's real user; recreates TYP-58/59/60 rows) -------------
 
+# `category` must stay inside the 5-value taxonomy the ML models are defined
+# over (Activity / Restaurant / Cafe / Dessert / Bar) — `places.category` has no
+# CHECK constraint, so nothing enforces this but us. Trillium was "Brewery"
+# until TYP-70, which put it outside the taxonomy and gave it no ground-truth
+# preference to learn from.
+#
+# "TopGolf Canton" is spelled to match `seed_ml_data.py` deliberately:
+# `create_place` is idempotent by name, so matching names means Alan's rating
+# and the personas' ratings land on ONE place row instead of two near-duplicates.
 PLACES_AND_RATINGS = [
-    ("Trillium Brewing", "Brewery", 42.3491, -71.0517, 9.1),
-    ("Top Golf", "Activity", 42.1535, -71.1389, 8.4),
+    ("Trillium Brewing", "Bar", 42.3491, -71.0517, 9.1),
+    ("TopGolf Canton", "Activity", 42.1535, -71.1389, 8.4),
     ("Bar Lyon", "Restaurant", 42.3406, -71.0734, 8.0),
     ("Tasty Burger", "Restaurant", 42.3505, -71.0594, 7.6),
     ("Tatte Bakery", "Cafe", 42.3580, -71.0680, 7.2),
@@ -214,7 +223,7 @@ PLACES_AND_RATINGS = [
 # (title, days_ago, final_rating, [place_name, ...])
 OUTINGS = [
     ("Friday Brewery Night", 3, 8.7, ["Trillium Brewing", "Tasty Burger"]),
-    ("Saturday Day Out", 10, 9.2, ["Top Golf", "Bar Lyon"]),
+    ("Saturday Day Out", 10, 9.2, ["TopGolf Canton", "Bar Lyon"]),
     ("Coffee & Drinks", 21, 7.5, ["Tatte Bakery", "Bar Lyon"]),
 ]
 
