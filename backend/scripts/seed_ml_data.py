@@ -53,6 +53,10 @@ PREFERENCE_MATRIX: dict[str, dict[str, tuple[float, float]]] = {
 }
 # fmt: on
 
+# 10 per category. Count matters more than identity here: each persona rates
+# each place at most once, so observations-per-cell is capped at
+# (places in that category) × coverage. At 5 places/category the model was
+# fitting each of the 40 cells on ~4 ratings; 10 doubles that.
 PLACES: list[tuple[str, str, float, float]] = [
     # Activity
     ("TopGolf Canton",              "Activity",   42.155, -71.147),
@@ -60,6 +64,11 @@ PLACES: list[tuple[str, str, float, float]] = [
     ("F1 Arcade Seaport",           "Activity",   42.352, -71.048),
     ("Charles River Canoe & Kayak", "Activity",   42.365, -71.107),
     ("Puttshack Fenway",            "Activity",   42.348, -71.100),
+    ("Lucky Strike Fenway",         "Activity",   42.347, -71.098),
+    ("Boston Bowl",                 "Activity",   42.291, -71.055),
+    ("Museum of Science",           "Activity",   42.367, -71.071),
+    ("New England Aquarium",        "Activity",   42.359, -71.049),
+    ("Time Out Market",             "Activity",   42.348, -71.103),
     # Restaurant
     ("Yume Ga Arukara",             "Restaurant", 42.389, -71.119),
     ("Pho Basil",                   "Restaurant", 42.348, -71.084),
@@ -67,24 +76,43 @@ PLACES: list[tuple[str, str, float, float]] = [
     ("Mooo",                        "Restaurant", 42.359, -71.061),
     ("Saigon Fusion",               "Restaurant", 42.345, -71.082),
     ("Giulia",                      "Restaurant", 42.376, -71.117),
+    ("Toro",                        "Restaurant", 42.342, -71.075),
+    ("Neptune Oyster",              "Restaurant", 42.363, -71.055),
+    ("Sarma",                       "Restaurant", 42.396, -71.096),
+    ("Krasi",                       "Restaurant", 42.351, -71.078),
     # Cafe
     ("Tatte Bakery",                "Cafe",       42.358, -71.068),
     ("HeyTea",                      "Cafe",       42.349, -71.082),
     ("Molly Tea",                   "Cafe",       42.347, -71.086),
     ("Teazi",                       "Cafe",       42.348, -71.084),
     ("Blank Street Coffee",         "Cafe",       42.354, -71.070),
+    ("Thinking Cup",                "Cafe",       42.352, -71.063),
+    ("Pavement Coffeehouse",        "Cafe",       42.348, -71.088),
+    ("George Howell Coffee",        "Cafe",       42.352, -71.055),
+    ("Gracenote Coffee",            "Cafe",       42.349, -71.058),
+    ("Render Coffee",               "Cafe",       42.341, -71.071),
     # Dessert
     ("Oasis",                       "Dessert",    42.350, -71.062),
     ("Berryline",                   "Dessert",    42.373, -71.121),
     ("Meetfresh",                   "Dessert",    42.351, -71.063),
     ("Matcha Miako",                "Dessert",    42.349, -71.083),
     ("Davinci Gelato",              "Dessert",    42.350, -71.062),
+    ("Mike's Pastry",               "Dessert",    42.363, -71.054),
+    ("Modern Pastry",               "Dessert",    42.363, -71.056),
+    ("J.P. Licks",                  "Dessert",    42.348, -71.087),
+    ("Toscanini's",                 "Dessert",    42.365, -71.104),
+    ("Christina's Ice Cream",       "Dessert",    42.373, -71.107),
     # Bar
     ("Drink",                       "Bar",        42.352, -71.048),
     ("Wink & Nod",                  "Bar",        42.348, -71.083),
     ("Yvonne's",                    "Bar",        42.356, -71.061),
     ("The Hawthorne",               "Bar",        42.348, -71.098),
     ("Backbar",                     "Bar",        42.395, -71.099),
+    ("Bleacher Bar",                "Bar",        42.346, -71.097),
+    ("Lolita Cocina",               "Bar",        42.351, -71.073),
+    ("Shore Leave",                 "Bar",        42.343, -71.072),
+    ("Havana Club",                 "Bar",        42.365, -71.103),
+    ("The Automatic",               "Bar",        42.365, -71.100),
 ]
 
 

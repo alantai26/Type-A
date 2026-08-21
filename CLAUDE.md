@@ -35,6 +35,22 @@ alembic revision -m "msg"                  # create empty migration stub (then e
 alembic revision --autogenerate -m "msg"   # autogenerate from model diff
 ```
 
+Seed / reset the local dev database (TYP-68/69/74):
+
+```bash
+python scripts/reset_dev_data.py    # wipe seeded content; keeps real users; local DB only
+python scripts/seed_dev_data.py     # Alan's real user's places, ratings, outings, saves
+python scripts/seed_ml_data.py      # 8 synthetic personas × 50 places of ML training data
+```
+
+`place_ratings` is append-only (TYP-21), so re-running a seed script *appends* ratings rather
+than updating them. Reset first when the counts matter — a double-seeded row is silently
+double-weighted in ML training.
+
+ML training deps are split out (TYP-70): `requirements.txt` carries numpy for inference,
+`requirements-ml.txt` adds scikit-learn for offline training only. Install with
+`pip install -r requirements-ml.txt` when training; Render installs only `requirements.txt`.
+
 No test framework configured yet. Lint with `ruff check app/` from `backend/` (config in `backend/pyproject.toml`: rules `E, F, I, B, UP`, line-length 88, isort with `app` as first-party).
 
 **Migration workflow:** Migration files in `backend/alembic/versions/` must be created via the alembic CLI — direct Write/Edit is blocked by a hook. Output the CLI command for the user to run; once the stub exists, you can edit its body.
@@ -51,6 +67,12 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
 - `backend/app/repositories/` — data access layer
 - `backend/app/models/` — SQLAlchemy ORM models only
 - `backend/app/schemas/` — Pydantic request/response schemas (one file per resource: `users.py`, `places.py`, etc.)
+- `backend/app/ml/` — ML models (TYP-70 onward). Not part of the layered stack; training runs
+  offline via `backend/scripts/`, inference is called from the service layer. `data.py` loads and
+  validates training rows; `atomic_recommender.py` holds feature encoding + ridge fit. The model
+  artifact is JSON (plain coefficients), deliberately not a sklearn pickle — unpickling an
+  estimator would drag sklearn + scipy (~143MB) into a 512MB Render dyno for code that never runs
+  in the request path.
 
 ## Data Model (TYP-8 — implemented, migrated)
 
@@ -207,6 +229,7 @@ Backend:
 - **TYP-21 drive-by fix** — `/places/{id}/my_rating` was returning a raw `PlaceRating` ORM row missing `place_name` + `category`, causing Pydantic 500. `get_latest_for_user_place` now mirrors `list_by_user`'s join (rode along in PR #29)
 - **TYP-68** (mvML-1) — `backend/scripts/seed_dev_data.py` refactored into 5 reusable idempotent helpers taking an explicit `db: Session`: `create_user`, `create_place`, `create_rating` (append-only per TYP-21), `create_saved`, `create_outing_with_stops` (merged 2026-08-19 PR #33)
 - **TYP-69** (mvML-2) — `backend/scripts/seed_ml_data.py`: synthetic ML training data generated from an 8-persona × 5-category `PREFERENCE_MATRIX` answer key; 26 Boston places, `--coverage 0.85`, `--seed 42`; outings pair a 0.7-weight top-preference stop with a 0.3-weight bottom-preference stop so the attribution model has ground truth. Also hardened `.claude/hooks/protect-files.sh` with secret-value content scanning and added `docs/SECURITY_CONSIDERATIONS.md` (merged 2026-08-19 PRs #34/#35 — see `docs/TYP_69_HANDOFF.md`)
+- **TYP-74** (mvML-2.5) — seed-data hygiene, split out of TYP-70 mid-implementation. `backend/scripts/reset_dev_data.py` (FK-safe wipe, deletes `@synthetic.typea.dev` personas but **keeps real users** — their `user_id` came from Supabase and is baked into live JWTs; local-DB only). `Trillium Brewing` re-categorized `Brewery` → `Bar` to stay inside the 5-value ML taxonomy, and `"Top Golf"` renamed to `"TopGolf Canton"` to match `seed_ml_data.py` (`create_place` is idempotent *by name*, so the two spellings were creating two near-duplicate place rows). `seed_ml_data.py` `PLACES` 26 → 50 (10/category) — observations per user×category cell is capped at (places in category) × coverage, so more personas wouldn't have helped
 
 iOS:
 - **TYP-25** — project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models

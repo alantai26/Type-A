@@ -6,6 +6,19 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-08-21 — TYP-74 shipped: seed-data hygiene; TYP-70 split into three tickets
+
+- **Branch `typ-70-mvml-3a-atomic-recommender-core-training-script`.** Closes TYP-74; TYP-70 stays In Progress (feature encoding + fit landed, `predict()` / artifact IO / training script still to come).
+- **TYP-70 was rescoped from 8pt to three tickets** once implementation started: **TYP-74** (mvML-2.5, seed hygiene — this PR), **TYP-70** (mvML-3a, model core + training script), **TYP-75** (mvML-3b, eval harness), **TYP-76** (mvML-3c, wire `/places/{id}/predict`). The seam is eval: TYP-70 can merge on "it trains and produces an artifact" instead of staying open through tuning.
+- **Four data-hygiene bugs found, none of which raised an error.** (1) Two seed runs left 193 raw ratings vs 178 distinct pairs — append-only per TYP-21, so every re-seeded observation was double-weighted in training. (2) `Trillium Brewing` was categorized `"Brewery"`, outside the 5-value ML taxonomy and therefore with no ground-truth preference behind it. (3) `"Top Golf"` vs `"TopGolf Canton"` — `create_place` is idempotent *by name*, so the two spellings made two near-duplicate place rows, Alan's rating on one and the personas' on the other. (4) 5 places/category meant each of the 40 user×category cells was fit on ~4 ratings.
+- **`backend/scripts/reset_dev_data.py` added.** `DELETE_ORDER` lists 9 content tables children-first — a FK violation on run means someone added a table to the schema and not to the list. Refuses non-local DBs outright.
+- **The reset keeps real user rows, by design.** Real `user_id`s were issued by Supabase and live inside current JWTs; `seed_dev_data.py` looks the real user up *by email* and exits if missing (deliberately not `create_user`, so it can't spawn a duplicate under a fresh UUID). Filter is email-suffix — `@synthetic.typea.dev` dies, everything else survives. Rejected "delete users with no ratings," which would have killed `funlego092`, a real user who simply hasn't rated anything.
+- **Dedupe is the load-bearing fix; the reset is ergonomics.** `app/ml/data.py` uses `DISTINCT ON (user_id, place_id) ORDER BY created_at DESC` because the model has to be correct against production, where append-only is real behavior and no reset exists.
+- **10 places/category, not more personas.** Each persona rates each place at most once, so observations-per-cell is capped at (places in category) × coverage. Adding personas adds *cells*, not observations per cell.
+- **Local DB after reset + reseed** (verified 2026-08-21): 53 places, 5 categories exactly (Activity 10, Bar 11, Cafe 10, Dessert 10, Restaurant 12), 10 users, 344 ratings, **0 duplicate (user, place) pairs**, 9 users with ratings, 43 outings. 53 rather than 55 is the evidence the name-collapse worked — `TopGolf Canton` and `Tatte Bakery` are now shared between the two seed scripts.
+- **Model result so far** (not yet committed as an artifact): α = 0.1, intercept 6.45, 344 training rows. Planted `PREFERENCE_MATRIX` values recovered within ~0.3 on every cell — Coffee Snob × Cafe true 9.5 → 9.39, `hater` flat 3.0–3.2, `omnivore` flat 6.8–7.1. Alan's never-rated Dessert cell returned **8.05, his own baseline, not the 6.45 global mean** — shrinkage handling an empty cell with no special-case code.
+- **⚠️ `places.category` still has no CHECK constraint.** Two mitigations shipped (a comment at the seed source, and `normalize_category()` which folds case-insensitively and returns `None` rather than guessing off-taxonomy values into a bucket), but neither is the real fix. A CHECK constraint needs an Alembic migration + backfill — **not filed yet**, and it gets harder to backfill once real user-generated places exist.
+
 ### 2026-08-19 (later) — TYP-69 shipped: synthetic ML training data + security hardening
 
 - **Merged in PRs #34 + #35** (commits `6d673aa`, `703eb5c`). Branch `typ-69-mvml-2-hand-curated-seed-data-alan`. Full breakdown in `docs/TYP_69_HANDOFF.md`.
@@ -234,8 +247,10 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 ### ML
 - **Schema ready**: `outings.derived_score` (frozen at confirm), `attribution_outputs.attributed_effect` (per-user per-place), `events.weight` (per-stop slider)
 - **mvML path active** (since 2026-08-19) — supersedes the earlier "wait for real rating data" sequencing. Synthetic training data is seeded and the models train against it now.
-- **Training data shipped** (TYP-69): 168 synthetic ratings + 40 weighted 2-stop outings across 8 preference personas, generated from a `PREFERENCE_MATRIX` answer key in `backend/scripts/seed_ml_data.py`.
-- **Next**: TYP-70 (Atomic Recommender, ridge) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5.
+- **Training data shipped** (TYP-69, cleaned in TYP-74): 344 ratings + 43 weighted 2-stop outings across 8 preference personas over 50 places, generated from a `PREFERENCE_MATRIX` answer key in `backend/scripts/seed_ml_data.py`. Reset with `scripts/reset_dev_data.py` before reseeding — ratings are append-only.
+- **`backend/app/ml/` exists** (TYP-70, partial): `data.py` loads + category-validates training rows; `atomic_recommender.py` has `build_features` (three one-hot blocks — user, category, user×category) and `fit` (RidgeCV, leave-one-out). Still to come: `predict()`, JSON artifact IO, `scripts/train_atomic.py`.
+- **Why ridge, precisely**: the interaction block spans the user and category blocks, so `XᵀX` is singular and plain least squares has no unique solution. The `αI` term makes it invertible — regularization is the second benefit, not the first.
+- **Next**: TYP-70 (model core + training script) → TYP-75 (eval harness) → TYP-76 (wire the endpoint) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5.
 - Recommendations endpoint will still use popularity-fallback in v1.
 
 ### Design
