@@ -259,9 +259,11 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 - **Schema ready**: `outings.derived_score` (frozen at confirm), `attribution_outputs.attributed_effect` (per-user per-place), `events.weight` (per-stop slider)
 - **mvML path active** (since 2026-08-19) — supersedes the earlier "wait for real rating data" sequencing. Synthetic training data is seeded and the models train against it now.
 - **Training data shipped** (TYP-69, cleaned in TYP-74): 344 ratings + 43 weighted 2-stop outings across 8 preference personas over 50 places, generated from a `PREFERENCE_MATRIX` answer key in `backend/scripts/seed_ml_data.py`. Reset with `scripts/reset_dev_data.py` before reseeding — ratings are append-only.
-- **`backend/app/ml/` exists** (TYP-70, partial): `data.py` loads + category-validates training rows; `atomic_recommender.py` has `build_features` (three one-hot blocks — user, category, user×category) and `fit` (RidgeCV, leave-one-out). Still to come: `predict()`, JSON artifact IO, `scripts/train_atomic.py`.
+- **`backend/app/ml/` shipped** (TYP-70 + TYP-77): `data.py` loads + category-validates training rows (`DISTINCT ON` dedupe, `normalize_category` folding case and rejecting off-taxonomy values); `atomic_recommender.py` has `build_features` (three one-hot blocks — user, category, user×category), `fit` (RidgeCV, leave-one-out over a log-spaced α grid), `predict`, and JSON artifact IO.
+- **Trained artifact committed** at `coefficients/atomic_v1.json` — 59 coefficients, α=0.1, intercept 6.45, 344 training rows. Regenerate with `python scripts/train_atomic.py`.
 - **Why ridge, precisely**: the interaction block spans the user and category blocks, so `XᵀX` is singular and plain least squares has no unique solution. The `αI` term makes it invertible — regularization is the second benefit, not the first.
-- **Next**: TYP-70 (model core + training script) → TYP-75 (eval harness) → TYP-76 (wire the endpoint) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5.
+- **Column naming is a cross-ticket contract**: `"user=<id>"`, `"cat=<Category>"`, `"user=<id>|cat=<Category>"`. `predict` and TYP-75's eval both parse these; a one-character drift silently zeroes the personalization term (see the 2026-08-24 entry).
+- **Next**: TYP-75 (eval harness) → TYP-76 (wire the endpoint) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5 — nothing serves the trained model yet.
 - Recommendations endpoint will still use popularity-fallback in v1.
 
 ### Design

@@ -51,6 +51,18 @@ ML training deps are split out (TYP-70): `requirements.txt` carries numpy for in
 `requirements-ml.txt` adds scikit-learn for offline training only. Install with
 `pip install -r requirements-ml.txt` when training; Render installs only `requirements.txt`.
 
+Train the Atomic Recommender (TYP-77):
+
+```bash
+python scripts/train_atomic.py              # writes coefficients/atomic_v1.json
+python scripts/train_atomic.py --dry-run    # train + report, don't write
+```
+
+Prints alpha, matrix shape, skipped off-taxonomy rows, and a per-user prediction table.
+**Read that table** — it warns when every user's top category is identical, which means the
+user×category interaction isn't reaching the prediction. The artifact is committed to git
+because Render deploys from the repo and never trains.
+
 No test framework configured yet. Lint with `ruff check app/` from `backend/` (config in `backend/pyproject.toml`: rules `E, F, I, B, UP`, line-length 88, isort with `app` as first-party).
 
 **Migration workflow:** Migration files in `backend/alembic/versions/` must be created via the alembic CLI — direct Write/Edit is blocked by a hook. Output the CLI command for the user to run; once the stub exists, you can edit its body.
@@ -229,7 +241,9 @@ Backend:
 - **TYP-21 drive-by fix** — `/places/{id}/my_rating` was returning a raw `PlaceRating` ORM row missing `place_name` + `category`, causing Pydantic 500. `get_latest_for_user_place` now mirrors `list_by_user`'s join (rode along in PR #29)
 - **TYP-68** (mvML-1) — `backend/scripts/seed_dev_data.py` refactored into 5 reusable idempotent helpers taking an explicit `db: Session`: `create_user`, `create_place`, `create_rating` (append-only per TYP-21), `create_saved`, `create_outing_with_stops` (merged 2026-08-19 PR #33)
 - **TYP-69** (mvML-2) — `backend/scripts/seed_ml_data.py`: synthetic ML training data generated from an 8-persona × 5-category `PREFERENCE_MATRIX` answer key; 26 Boston places, `--coverage 0.85`, `--seed 42`; outings pair a 0.7-weight top-preference stop with a 0.3-weight bottom-preference stop so the attribution model has ground truth. Also hardened `.claude/hooks/protect-files.sh` with secret-value content scanning and added `docs/SECURITY_CONSIDERATIONS.md` (merged 2026-08-19 PRs #34/#35 — see `docs/TYP_69_HANDOFF.md`)
-- **TYP-74** (mvML-2.5) — seed-data hygiene, split out of TYP-70 mid-implementation. `backend/scripts/reset_dev_data.py` (FK-safe wipe, deletes `@synthetic.typea.dev` personas but **keeps real users** — their `user_id` came from Supabase and is baked into live JWTs; local-DB only). `Trillium Brewing` re-categorized `Brewery` → `Bar` to stay inside the 5-value ML taxonomy, and `"Top Golf"` renamed to `"TopGolf Canton"` to match `seed_ml_data.py` (`create_place` is idempotent *by name*, so the two spellings were creating two near-duplicate place rows). `seed_ml_data.py` `PLACES` 26 → 50 (10/category) — observations per user×category cell is capped at (places in category) × coverage, so more personas wouldn't have helped
+- **TYP-74** (mvML-2.5) — seed-data hygiene, split out of TYP-70 mid-implementation. `backend/scripts/reset_dev_data.py` (FK-safe wipe, deletes `@synthetic.typea.dev` personas but **keeps real users** — their `user_id` came from Supabase and is baked into live JWTs; local-DB only). `Trillium Brewing` re-categorized `Brewery` → `Bar` to stay inside the 5-value ML taxonomy, and `"Top Golf"` renamed to `"TopGolf Canton"` to match `seed_ml_data.py` (`create_place` is idempotent *by name*, so the two spellings were creating two near-duplicate place rows). `seed_ml_data.py` `PLACES` 26 → 50 (10/category) — observations per user×category cell is capped at (places in category) × coverage, so more personas wouldn't have helped (merged 2026-08-21 PR #37)
+- **TYP-70** (mvML-3a) — Atomic Recommender foundation. `backend/app/ml/data.py` (training-row loading, `DISTINCT ON (user_id, place_id)` dedupe since `place_ratings` is append-only, `normalize_category()` folding case and returning `None` for off-taxonomy values rather than guessing) + `backend/app/ml/atomic_recommender.py` (`build_features` encoding three one-hot blocks `[user | category | user×category]`, `FittedModel` as plain JSON-serializable floats, `fit` via `RidgeCV` with lazy sklearn import). Ridge is required rather than preferred: the interaction block spans the user and category blocks, so `XᵀX` is singular and plain least squares has no unique solution (merged 2026-08-21 PR #37)
+- **TYP-77** (mvML-3b) — Atomic Recommender made servable. `predict(model, user_id, category)` sums the intercept plus three coefficients looked up by name, each via `.get(name, 0.0)` so a missing column contributes zero — that single default is the entire cold-start story (unknown user → global mean; known user, unrated category → *that user's* baseline, e.g. Alan's never-rated Dessert cell returns 8.05 not 6.45). Clamped to `[0.0, 10.0]` because ridge is unbounded. `save_json`/`load_json` write plain coefficients; `load_json` raises on a `model_version` mismatch rather than serving stale numbers silently. `backend/scripts/train_atomic.py` is the CLI. **`coefficients/atomic_v1.json` is committed** — Render deploys from git, has no object storage, and the free tier has no pre-deploy command, so there is nowhere else for it to come from; it scales as `n_users × 6` and needs object storage eventually. Column names `"user=<id>"` / `"cat=<Category>"` / `"user=<id>|cat=<Category>"` are a contract shared with TYP-75's eval — a one-character drift silently zeroes the personalization term and still returns plausible numbers
 
 iOS:
 - **TYP-25** — project scaffold + APIClient singleton at https://type-a-api.onrender.com + KeychainStore + Models
