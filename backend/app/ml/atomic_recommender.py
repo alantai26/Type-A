@@ -1,10 +1,12 @@
-"""Atomic Recommender — per-user place-rating prediction (TYP-70).
+"""Atomic Recommender — per-user place-rating prediction (TYP-70, TYP-77).
 
 Predicts how much a given user will rate a given place, using only the place's
 category. See `docs/TYP_70_HANDOFF.md` for the modeling rationale.
 """
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -118,4 +120,70 @@ def fit(
         intercept=float(model.intercept_),
         alpha=float(model.alpha_),
         n_train=int(X.shape[0]),
+    )
+
+RATING_MIN = 0.0
+RATING_MAX = 10.0
+
+
+def predict(model: FittedModel, user_id: str, category: str) -> float:
+    lookup = dict(zip(model.columns, model.coef, strict=True))
+    score = (
+        model.intercept
+        + lookup.get(f"user={user_id}", 0.0)
+        + lookup.get(f"cat={category}", 0.0)
+        + lookup.get(f"user={user_id}|cat={category}", 0.0)
+    )
+    return max(RATING_MIN, min(RATING_MAX, score))
+
+
+# --- Artifact IO -------------------------------------------------------------
+#
+# Bumped whenever the artifact's meaning changes — new feature blocks, a
+# different column-naming scheme, a changed rating scale. `load_json` refuses a
+# mismatch rather than serving plausible-looking wrong numbers from coefficients
+# that no longer mean what the code thinks they mean.
+MODEL_VERSION = "atomic-v1"
+
+# Repo root, not backend/ — `coefficients/` is a top-level ML pipeline dir.
+ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "coefficients" / "atomic_v1.json"
+
+
+def save_json(model: FittedModel, path: Path = ARTIFACT_PATH) -> Path:
+    """Write a fitted model to disk as JSON. Returns the path written.
+
+    Deliberately not a pickle. Unpickling a sklearn estimator would require
+    sklearn at import time in the request path, dragging sklearn + scipy
+    (~143MB) onto a 512MB Render dyno to serve what is ultimately three dict
+    lookups and an add. Plain JSON keeps inference numpy-only.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"model_version": MODEL_VERSION, **asdict(model)}
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+    return path
+
+
+def load_json(path: Path = ARTIFACT_PATH) -> FittedModel:
+    """Read an artifact written by `save_json`.
+
+    Raises `FileNotFoundError` if the artifact is missing and `ValueError` if it
+    was written by a different model version — both are startup-time failures,
+    which is where you want them. A silently stale artifact would serve wrong
+    predictions indefinitely with nothing in the logs.
+    """
+    payload = json.loads(path.read_text())
+
+    found = payload.get("model_version")
+    if found != MODEL_VERSION:
+        raise ValueError(
+            f"{path} was written by {found!r}, but this code expects "
+            f"{MODEL_VERSION!r}. Retrain with scripts/train_atomic.py."
+        )
+
+    return FittedModel(
+        columns=payload["columns"],
+        coef=payload["coef"],
+        intercept=payload["intercept"],
+        alpha=payload["alpha"],
+        n_train=payload["n_train"],
     )
