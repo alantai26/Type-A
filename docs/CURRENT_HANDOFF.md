@@ -6,6 +6,18 @@ Living doc. Updated as decisions are made, scope shifts, or tickets merge. For d
 
 ## Recent decisions
 
+### 2026-08-26 — TYP-76 shipped: `/places/{id}/predict` returns real numbers
+
+- **Closes TYP-76.** Branch `typ-76-mvml-3d-wire-placesidpredict-to-the-trained-model`. The stub `{"score": 7.5, "model_version": "stub-v0"}` that shipped in TYP-33 back in May is finally gone. mvML-3 is complete end to end: seed → train → artifact → serve.
+- **The model loads at boot, not lazily, and that's a correctness decision rather than a performance one.** `get_model()` is an `lru_cache(maxsize=1)` loader called once from a new `lifespan` hook in `app/main.py`. Lazy loading would mean a missing artifact produces a green deploy and a 500 on some user's request an hour later; loading at startup makes it a failed deploy, and Render keeps the previous version live. Verified both failure paths refuse to boot — `FileNotFoundError` on a missing artifact, `ValueError` on a version-stale one.
+- **`FittedModel.lookup` became a `@cached_property`.** `predict` was rebuilding the whole name→coefficient dict on every call. Correct for TYP-77, where the only caller was a script making 45 predictions; wrong once a web server calls it per request, since the dict scales as `n_users × 6`. Not a bug and not the bottleneck (the `db.get` above it is a round-trip), but it costs three lines and the waste grows with the user count. Works on a frozen dataclass because `cached_property` writes into `self.__dict__` rather than through `__setattr__`, and it stays out of the artifact because `asdict` only walks declared fields.
+- **`normalize_category()` in the service is load-bearing, not defensive.** `places.category` is free text with no CHECK constraint. A row stored as `"restaurant"` would miss the `cat=Restaurant` column and `.get`'s default would hand back the user's baseline — no error, plausible number, exactly the pipe-spacing failure shape from TYP-77. Confirmed: `Cafe`/`cafe`/`CAFE` all → 9.39 for Coffee Snob, while `Brewery` → `None` → 6.31 (his own baseline, not the 6.45 global mean).
+- **The route keeps the `Place` it fetched for the 404 check** instead of discarding it, since the service needs `place.category`. Service takes the ORM object, not an ID, so it stays free of database access.
+- **Verified against every acceptance criterion.** Each synthetic persona's top-scoring category is their planted preference (Coffee Snob→Cafe 9.39, Bar Hopper→Bar 9.39, Dessert Head→Dessert 9.44, Foodie→Restaurant 9.11); `Hater` is flat at ~3.0–3.2 across all five, which is the flat-persona control working; **`funlego092`, a real user with 0 ratings, scores 5.95–6.69** — the cold-start path, no error and no special-case code. `model_version` is `atomic-v1`, missing place still 404s, unauthenticated request still 401s, and `import app.main` pulls in no sklearn/scipy/joblib.
+- **⚠️ `ARTIFACT_PATH` on Render is still unverified.** It resolves via `parents[3]` off the module file to repo-root `coefficients/`, while Render's Root Directory is `backend`. Render clones the full repo and only `cd`s in, so this should work — but nothing has proved it, and the failure mode is now a refused deploy. Check it on the first push to `prod`.
+- **⚠️ Default arguments are bound at definition time**, so `load_json(path=ARTIFACT_PATH)` ignores any later patch of the module attribute. Cost me a wrong test result here (a "missing artifact" case that silently loaded the real file and passed). TYP-75's eval harness will want to load alternate artifacts — it should take an explicit path argument rather than monkeypatching.
+- **Pre-existing lint noise is unchanged**, deliberately: `app/routes/places.py` reports 12 `B008`s before and after (ruff objecting to FastAPI's `Depends(...)`-in-defaults idiom), and `app/main.py` went 12 → 14 `E402`s because `load_dotenv()` must run before any import. Both are project-wide and want a config-level fix, not a per-ticket one.
+
 ### 2026-08-24 — TYP-77 shipped: the Atomic Recommender is servable
 
 - **Closes TYP-77.** Branch `typ-77-mvml-3b-atomic-recommender-predict-model-artifact-training`. The model went from "exists inside a Python process" to "a file on disk anything can load."
@@ -241,10 +253,10 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 
 ### Backend
 - **Deployed** at `https://type-a-api.onrender.com` (Render free tier, cold starts ~30–60s)
-- **30+ endpoints** across users, places, events, outings, ratings, friendships, invitations, feed, predictions (stub)
+- **30+ endpoints** across users, places, events, outings, ratings, friendships, invitations, feed, predictions
 - **Auth**: Supabase JWT (ES256, JWKS-verified), auto-provisioning on first `/me` hit
 - **DB**: PostgreSQL with extensions `cube`, `earthdistance`, `pg_trgm`
-- **ML**: stubs only — `/predict_place` and `/predict_outing` return constant 7.5
+- **ML**: `/places/{id}/predict` serves the real Atomic Recommender (`atomic-v1`, TYP-76) — artifact loaded once at boot via `main.py`'s lifespan hook, inference is three dict lookups and no sklearn. `/outings/{id}/predict` is still the constant-7.5 stub, pending the attribution model (TYP-71).
 - **Pending tickets**: `/me/trending_places` (with manual alpha seed script), `/me/recommendations`, invitation hookup for Plan creation flow (drafted, not yet filed in Linear)
 
 ### iOS
@@ -263,7 +275,8 @@ Mockup covers 6 snapshots: empty Plan tab → New event modal → New outing mod
 - **Trained artifact committed** at `coefficients/atomic_v1.json` — 59 coefficients, α=0.1, intercept 6.45, 344 training rows. Regenerate with `python scripts/train_atomic.py`.
 - **Why ridge, precisely**: the interaction block spans the user and category blocks, so `XᵀX` is singular and plain least squares has no unique solution. The `αI` term makes it invertible — regularization is the second benefit, not the first.
 - **Column naming is a cross-ticket contract**: `"user=<id>"`, `"cat=<Category>"`, `"user=<id>|cat=<Category>"`. `predict` and TYP-75's eval both parse these; a one-character drift silently zeroes the personalization term (see the 2026-08-24 entry).
-- **Next**: TYP-75 (eval harness) → TYP-76 (wire the endpoint) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/places/{id}/predict` and `/outings/{id}/predict` are still `stub-v0` returning 7.5 — nothing serves the trained model yet.
+- **Serving live** (TYP-76): `/places/{id}/predict` returns `atomic-v1` scores. Artifact loads once at boot through `main.py`'s lifespan hook calling the `lru_cache`'d `get_model()`; the request path is `route → services/places.py::predict_score_for_place → predict()`, with `normalize_category()` folding the free-text `places.category` before lookup. No sklearn or scipy is importable from `app.main`.
+- **Next**: TYP-75 (eval harness) → TYP-71 (Attribution Model, hierarchical) → TYP-72 (iOS Recommended Score). `/outings/{id}/predict` is still `stub-v0` returning 7.5 — it needs the attribution model, which doesn't exist yet.
 - Recommendations endpoint will still use popularity-fallback in v1.
 
 ### Design

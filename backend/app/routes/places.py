@@ -75,9 +75,12 @@ def predict_place(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> PlacePredictionOut:
-    if db.get(Place, place_id) is None:
+    place = db.get(Place, place_id)
+    if place is None:
         raise HTTPException(status_code=404, detail="Place not found")
-    return PlacePredictionOut(score=7.5, model_version="stub-v0")
+    return places_service.predict_score_for_place(
+        user_id=current_user.user_id, place=place
+    )
 
 
 @router.get(
