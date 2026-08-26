@@ -2,9 +2,12 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.ml.atomic_recommender import MODEL_VERSION, get_model, predict
+from app.ml.data import normalize_category
+from app.models.places import Place
 from app.repositories import friendships as friendships_repo
 from app.repositories import places as places_repo
-from app.schemas.places import FriendRatingOut, FriendSaveOut
+from app.schemas.places import FriendRatingOut, FriendSaveOut, PlacePredictionOut
 
 
 def get_friends_activity_for_place(
@@ -34,3 +37,10 @@ def get_friends_activity_for_place(
 
     items.sort(key=lambda x: x.created_at, reverse=True)
     return items
+
+
+def predict_score_for_place(*, user_id: uuid.UUID, place: Place) -> PlacePredictionOut:
+    """Predicted rating for this user at this place, from the Atomic Recommender"""
+    category = normalize_category(place.category)
+    score = predict(get_model(), str(user_id), category)
+    return PlacePredictionOut(score=round(score, 2), model_version=MODEL_VERSION)

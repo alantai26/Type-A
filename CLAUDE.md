@@ -71,7 +71,7 @@ No test framework configured yet. Lint with `ruff check app/` from `backend/` (c
 
 Layered: **Route → Service → Repository → Database**. Auth is a FastAPI dependency, not a layer.
 
-- `backend/app/main.py` — FastAPI entry point, CORS middleware, `/health` and `/` routes, registers routers
+- `backend/app/main.py` — FastAPI entry point, CORS middleware, `/health` and `/` routes, registers routers. Also holds the `lifespan` hook (TYP-76), which loads the Atomic Recommender artifact before the server accepts traffic — a missing or version-stale artifact fails the deploy instead of surfacing as a 500 on some later request.
 - `backend/app/auth.py` — `require_auth` dependency: validates Supabase JWT (ES256, JWKS-cached), provisions a `users` row on first sight (uses JWT `sub` as `user_id`)
 - `backend/app/db.py` — SQLAlchemy engine + `get_db` session dependency
 - `backend/app/routes/` — API endpoints (request handling only; depend on `require_auth` and `get_db`). One file per resource — note that `/saved_places` endpoints live in `routes/places.py` (no separate route file), though `repositories/saved_places.py` is its own module.
@@ -84,7 +84,10 @@ Layered: **Route → Service → Repository → Database**. Auth is a FastAPI de
   validates training rows; `atomic_recommender.py` holds feature encoding + ridge fit. The model
   artifact is JSON (plain coefficients), deliberately not a sklearn pickle — unpickling an
   estimator would drag sklearn + scipy (~143MB) into a 512MB Render dyno for code that never runs
-  in the request path.
+  in the request path. Inference enters through `get_model()` (TYP-76), an `lru_cache`'d loader
+  called once from `main.py`'s lifespan hook and then per request from
+  `services/places.py::predict_score_for_place`, which normalizes the free-text `places.category`
+  before looking up coefficients.
 
 ## Data Model (TYP-8 — implemented, migrated)
 
@@ -163,7 +166,7 @@ Implemented:
 - GET    /me/outing_invitations                     → invitee's incoming outings with embedded `OutingOut` (which itself embeds events) (TYP-20)
 - TYP-19 retrofit: event/outing creation now auto-inserts the creator into the relevant invitations table with `rsvp_status='accepted'` (idempotent via `ON CONFLICT DO NOTHING`)
 - GET    /places/{place_id}/friends_activity → caller's accepted friends' rating + save activity on this place; discriminated `FriendRatingOut | FriendSaveOut` items (latest rating per friend via `DISTINCT ON`, saves PK-deduped); one row per action so a friend who rated AND saved produces two rows; sorted by `created_at DESC`; 404 if place missing (TYP-65)
-- GET    /places/{place_id}/predict     → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; 404 if place missing. To be replaced by ridge regression once iOS is shipping real ratings.
+- GET    /places/{place_id}/predict     → real Atomic Recommender score for the caller at this place, `{"score": 9.39, "model_version": "atomic-v1"}` (TYP-76). Auth required; 404 if place missing. Route fetches the `Place` once and hands it to `services/places.py::predict_score_for_place`, which folds `place.category` through `normalize_category()` before the coefficient lookup — a raw `"restaurant"` would otherwise miss the `cat=Restaurant` column and silently return the user's baseline. Score is rounded to 2dp and clamped to `[0.0, 10.0]`. A user absent from the training set gets the global mean rather than an error; an off-taxonomy category gets that user's own baseline.
 - GET    /outings/{outing_id}/predict   → stub returns `{"score": 7.5, "model_version": "stub-v0"}`; auth required; no ownership check (any user can see their predicted score for any outing); 404 if outing missing. To be replaced by attribution model later.
 
 Planned:
@@ -256,6 +259,8 @@ iOS:
 - **TYP-61** — Profile settings screen (push-navigation from gear icon, row-style edit pattern with single-field edit sheets, two-stage save flow, logout moved here from Profile; drive-by `APIClient` fix for Postgres microsecond timestamps that broke strict `.iso8601` parsing) — merged 2026-05-15 PR #27, bundled with TYP-41 — see `docs/TYP_61_HANDOFF.md`
 - **TYP-49** — PlaceDetailView functional v1: pushed from Profile Places + Saved rows, header (icon/name/category/lat-lng), your-rating section calling `GET /places/{id}/my_rating`, friends activity section calling TYP-65 endpoint, Save/Unsave action (Rate + Plan visible-but-disabled until TYP-29 + Plan tab); new `requestVoid` on APIClient for 204 endpoints; new `FriendRating`/`FriendSave`/`FriendsActivityItem` discriminated enum in `Models.swift`; Places-tab entries construct `Place` with `lat=0, lng=0` sentinel (header line hidden when zero) — merged 2026-05-22 PR #29; visual polish punted to TYP-67
 - **TYP-67** — PlaceDetailView UI/UX polish: 60pt orange-tinted category icon block in header, 32pt rounded-bold place name, unified 18pt section headers, action-pill row (filled-accent Save / outlined-accent Saved / outlined-disabled Rate + Plan), tier-coloured `scorePill` (green ≥6.7, amber ≥3.4, red below) reused in your-rating + friends activity, friends-activity rows redesigned with 40pt initials avatar + name/verb/relative-time stack + trailing score pill (for ratings) or filled bookmark icon (for saves), warm italic empty states, local `RelativeDateTimeFormatter` helper, redundant "You rated this X.X" text replaced with relative time next to the pill
+
+- **TYP-76** (mvML-3d) — `/places/{id}/predict` wired to the trained model. `get_model()` is an `lru_cache(maxsize=1)` loader called once from a new `lifespan` hook in `app/main.py`, so a missing or version-stale artifact fails the *deploy* instead of surfacing as a 500 on some later request — Render keeps the previous version live, which is the whole point of doing it at boot. `FittedModel.lookup` became a `@cached_property` so the name→coefficient dict is built once per model rather than per call (it scales as `n_users × 6`; fine for a 45-call training script, wrong for a request path). The route now keeps the `Place` it already fetched for the 404 check, because the service needs `place.category`. Verified: each synthetic persona's top-scoring category is their planted preference (Coffee Snob→Cafe 9.39, Bar Hopper→Bar 9.39, Dessert Head→Dessert 9.44, Foodie→Restaurant 9.11), `funlego092` (0 ratings) lands at 5.95–6.69 around the global mean, and `import app.main` loads no sklearn/scipy
 
 Check `backend/app/models/` and `backend/alembic/versions/` for current schema state.
 

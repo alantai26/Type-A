@@ -6,6 +6,7 @@ category. See `docs/TYP_70_HANDOFF.md` for the modeling rationale.
 
 import json
 from dataclasses import asdict, dataclass
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -94,6 +95,18 @@ class FittedModel:
     alpha: float
     n_train: int
 
+    @cached_property
+    def lookup(self) -> dict[str, float]:
+        """Column name -> coefficient, built once per model instance.
+
+        `predict` reads three entries out of this; rebuilding it per call would
+        scale with `n_users * 6` on every request. Safe on a frozen dataclass
+        because `cached_property` writes straight into `self.__dict__` rather
+        than through `__setattr__`, which is what `frozen` actually blocks. It
+        never reaches the artifact either — `asdict` only walks declared fields.
+        """
+        return dict(zip(self.columns, self.coef, strict=True))
+
 
 def fit(
     X: np.ndarray,
@@ -126,13 +139,20 @@ RATING_MIN = 0.0
 RATING_MAX = 10.0
 
 
-def predict(model: FittedModel, user_id: str, category: str) -> float:
-    lookup = dict(zip(model.columns, model.coef, strict=True))
+def predict(model: FittedModel, user_id: str, category: str | None) -> float:
+    """Predicted rating for this user at a place in this category, in [0, 10].
+
+    A missing column contributes 0.0, and that default is the whole cold-start
+    story: an unknown user misses all three lookups and lands on the global
+    mean, while a known user in a category they've never rated keeps their own
+    user coefficient and lands on their personal baseline. `category=None`
+    (off-taxonomy place) misses the two category columns by design.
+    """
     score = (
         model.intercept
-        + lookup.get(f"user={user_id}", 0.0)
-        + lookup.get(f"cat={category}", 0.0)
-        + lookup.get(f"user={user_id}|cat={category}", 0.0)
+        + model.lookup.get(f"user={user_id}", 0.0)
+        + model.lookup.get(f"cat={category}", 0.0)
+        + model.lookup.get(f"user={user_id}|cat={category}", 0.0)
     )
     return max(RATING_MIN, min(RATING_MAX, score))
 
@@ -187,3 +207,15 @@ def load_json(path: Path = ARTIFACT_PATH) -> FittedModel:
         alpha=payload["alpha"],
         n_train=payload["n_train"],
     )
+
+
+@lru_cache(maxsize=1)
+def get_model() -> FittedModel:
+    """The process-wide Atomic Recommender, loaded from disk on first call.
+
+    Cached so the service layer can call this per request without touching the
+    filesystem. `main.py`'s lifespan hook calls it once at startup, which is
+    what turns a missing or version-stale artifact into a failed deploy rather
+    than a 500 on some user's request an hour later.
+    """
+    return load_json()

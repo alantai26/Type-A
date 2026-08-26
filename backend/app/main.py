@@ -2,9 +2,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.ml.atomic_recommender import get_model
 from app.routes import places as places_routes
 from app.routes import users as users_routes
 from app.routes import events as events_routes
@@ -15,10 +18,25 @@ from app.routes import feed as feed_routes
 from app.routes import event_invitations as event_invitations_routes
 from app.routes import outing_invitations as outing_invitations_routes
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown work. Everything before `yield` runs once at boot."""
+    # Load the Atomic Recommender before accepting traffic. A missing or
+    # version-stale artifact raises here, which fails the deploy outright and
+    # leaves the previous version live on Render. The alternative — finding out
+    # on the first user's request — means a green deploy quietly serving wrong
+    # numbers, which is what load_json's version gate exists to prevent.
+    # Nothing to tear down, so there's no code after the yield.
+    get_model()
+    yield
+
+
 app = FastAPI(
     title="Type A API",
     description="Social planner with ML predictions",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
